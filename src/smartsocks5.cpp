@@ -115,10 +115,12 @@ int main(int argc, char* argv[])
 static proxyconfig parse_config(std::string configfile)
 {
 	upstream_direct_connect_via_binded_address ud;
-	ud.bind_addr = "0.0.0.0";
+	ud.bind_addr = "::";
 
 	proxyconfig cfg;
 	cfg.listenport = 1810;
+	cfg.upstreams.push_back(ud);
+	ud.bind_addr = "0.0.0.0";
 	cfg.upstreams.push_back(ud);
 
 	upstream_socks5 ud2;

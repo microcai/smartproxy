@@ -414,6 +414,18 @@ private:
 
 		boost::asio::ip::tcp::socket client_sock(m_io);
 
+		if (bind_addr.is_v4() && remote_to_connect.protocol() == boost::asio::ip::tcp::v6())
+		{
+			std::cerr << "not using " << bind_addr << " to connect " << remote_to_connect << ", because ipv4 can not connect to ipv6 site" << std::endl;
+			return;
+		}
+
+		if (bind_addr.is_v6() && remote_to_connect.protocol() == boost::asio::ip::tcp::v4())
+		{
+			std::cerr << "not using " << bind_addr << " to connect " << remote_to_connect << ", because ipv6 can not connect to ipv4 site" << std::endl;
+			return;
+		}
+
 		client_sock.open(bind_addr.is_v6() ? boost::asio::ip::tcp::v6() : boost::asio::ip::tcp::v4());
 		client_sock.bind(boost::asio::ip::tcp::endpoint(bind_addr, 0));
 
