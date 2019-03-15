@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
 	options_description desc("options");
 	desc.add_options()
 		("help,h", "help message")
-		("version,v", "current sspay version")
+		("version,v", "current version")
 		("config", po::value<std::string>(&config), "config file")
 		;
 
@@ -152,14 +152,20 @@ static proxyconfig parse_config(std::string configfile)
 			for (auto up : cfgjson["upstreams"].array_items())
 			{
 
-				if (up["socks5"].is_null())
+				if (!up["bind"].is_null())
 				{
 					upstream_direct_connect_via_binded_address ud;
 					ud.bind_addr = up["bind"].string_value();
 
 					cfg.upstreams.push_back(ud);
 				}
-				else
+				else if (!up["interface"].is_null())
+				{
+					upstream_direct_connect_via_binded_interface ud;
+					ud.bindiface = up["interface"].string_value();
+					cfg.upstreams.push_back(ud);
+				}
+				else if (!up["socks5"].is_null())
 				{
 					upstream_socks5 ud;
 					ud.sock_host = up["socks5"].string_value();
