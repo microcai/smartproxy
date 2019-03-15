@@ -145,9 +145,10 @@ private:
 			switch(type)
 			{
 			case 1: // IPv4
-// 				g_socket_receive(socket,buffer,4,0,0);
-// 				// 继续读6个字节.
-// 				g_socket_add_watch(socket,G_IO_IN,3,(GSocketSourceFunc)get_socks5_iphost,session);
+				m_recbuf.consume(4);
+				m_socket.async_read_some(m_recbuf.prepare(5),
+					boost::bind(&Socks5Session::handle_read_socks5_ipv4host, shared_from_this(), _1, _2)
+				);
 				break;
 			case 3: // DNS 地址.
 				{
@@ -164,6 +165,46 @@ private:
 		}
 	}
 
+	void handle_read_socks5_ipv4host(const boost::system::error_code & ec, std::size_t bytes_transferred)
+	{
+		if(ec)
+			return;
+		m_recbuf.commit(bytes_transferred);
+		const char* buffer = boost::asio::buffer_cast<const char*>(m_recbuf.data());
+
+		boost::asio::ip::address_v4::bytes_type ip;
+		m_recbuf.sgetn((char*) &ip, 4);
+
+		boost::asio::ip::address_v4 host(ip);
+
+		boost::endian::big_int16_t port_networkbytesorder;
+		m_recbuf.sgetn((char*) &port_networkbytesorder, 2);
+
+		int port = port_networkbytesorder;
+		// 好的，目的地址和端口都获得了， 开启全部的 upstream，让 upstream 来干接下来的脏活.
+		m_recbuf.consume(m_recbuf.size());
+
+		std::cerr << "proxy to : " << host.to_string() << ": " << port << std::endl;
+		send_out_all_upstream(host.to_string(), port);
+	}
+
+	void handle_read_socks5_ipv6host(const boost::system::error_code & ec, std::size_t bytes_transferred)
+	{
+		if(ec)
+			return;
+		m_recbuf.commit(bytes_transferred);
+		const char* buffer = boost::asio::buffer_cast<const char*>(m_recbuf.data());
+
+		std::string host;
+		host.assign(buffer, m_recbuf.size()-2);
+		int port = boost::endian::big_to_native( *(boost::uint16_t*)(buffer+ m_recbuf.size()-2));
+		// 好的，目的地址和端口都获得了， 开启全部的 upstream，让 upstream 来干接下来的脏活.
+		m_recbuf.consume(m_recbuf.size());
+
+		std::cerr << "proxy to : " << host << ": " << port << std::endl;
+
+		send_out_all_upstream(host, port);
+	}
 	void handle_read_socks5_dnshost(const boost::system::error_code & ec, std::size_t bytes_transferred)
 	{
 		if(ec)
