@@ -1,8 +1,10 @@
 
 #include "getifaddr.hpp"
-#include <ifaddrs.h>
 
 #ifndef _WIN32
+
+#include <ifaddrs.h>
+
 boost::asio::ip::address_v4 getifaddrv4(std::string ifname)
 {
 	std::shared_ptr<ifaddrs> auto_free;
