@@ -190,7 +190,7 @@ private:
 		// 好的，目的地址和端口都获得了， 开启全部的 upstream，让 upstream 来干接下来的脏活.
 		m_recbuf.consume(m_recbuf.size());
 
-		std::cerr << "proxy to : " << host.to_string() << ": " << port << std::endl;
+		std::cerr << "receive proxy request to : " << host.to_string() << ": " << port << std::endl;
 		send_out_all_upstream(host.to_string(), port);
 	}
 
@@ -213,7 +213,7 @@ private:
 		// 好的，目的地址和端口都获得了， 开启全部的 upstream，让 upstream 来干接下来的脏活.
 		m_recbuf.consume(m_recbuf.size());
 
-		std::cerr << "proxy to : " << host.to_string() << ": " << port << std::endl;
+		std::cerr << "receive proxy request to : " << host.to_string() << ": " << port << std::endl;
 		send_out_all_upstream(host.to_string(), port);
 	}
 	void handle_read_socks5_dnshost(const boost::system::error_code & ec, std::size_t bytes_transferred)
@@ -229,7 +229,7 @@ private:
 		// 好的，目的地址和端口都获得了， 开启全部的 upstream，让 upstream 来干接下来的脏活.
 		m_recbuf.consume(m_recbuf.size());
 
-		std::cerr << "proxy to : " << host << ": " << port << std::endl;
+		std::cerr << "receive proxy request to : " << host << ": " << port << std::endl;
 
 		send_out_all_upstream(host, port);
 	}
@@ -286,7 +286,7 @@ private:
 	void socks5_connect_coroutine(std::string host, int port, upstream_socks5& up, boost::asio::yield_context yield_context)
 	{
 
-		std::cerr << "use socks5 to connect:" << host << "\n";
+		std::cerr << "\ttry use socks5 to connect:" << host << "\n";
 
 		boost::system::error_code ec;
 
@@ -439,7 +439,7 @@ private:
 
 		boost::system::error_code ec;
 
-		std::cerr << "direct connecting to " << host << "\n";
+		std::cerr << "\ttry direct connecting to " << host << "\n";
 
 		auto endpoints_range = resolver.async_resolve(boost::asio::ip::tcp::resolver::query(host, port_s), yield_context[ec]);
 
@@ -474,7 +474,7 @@ private:
 
 		if (bind_addr.is_v6() && remote_to_connect.protocol() == boost::asio::ip::tcp::v4())
 		{
-			std::cerr << "not using " << bind_addr << " to connect " << remote_to_connect << ", because ipv6 can not connect to ipv4 site" << std::endl;
+//			std::cerr << "not using " << bind_addr << " to connect " << remote_to_connect << ", because ipv6 can not connect to ipv4 site" << std::endl;
 			return;
 		}
 
@@ -531,7 +531,7 @@ private:
 		// 向 client 返回链接成功信息.
 		m_socket.async_write_some(asio::buffer("\005\000\000\001\000\000\000\000\000\000",10), yield_context[ec]);
 
-		std::cerr << "fastest connect to " << client_sock.remote_endpoint() << " via " << client_sock.local_endpoint() << "\n";
+		std::cerr << "fastest connect to " << client_sock.remote_endpoint(ec) << " via " << client_sock.local_endpoint() << "\n";
 
 		boost::shared_ptr<avsocks::splice<Socks5Session, boost::asio::ip::tcp::socket&, boost::asio::ip::tcp::socket>> splice_ptr;
 
@@ -551,7 +551,7 @@ private:
 		// 向 client 返回链接成功信息.
 		m_socket.async_write_some(asio::buffer("\005\000\000\001\000\000\000\000\000\000",10), yield_context[ec]);
 
-		std::cerr << "fastest connect to " << client_sock.remote_endpoint() << " via " << client_sock.local_endpoint() << "\n";
+		std::cerr << "fastest connect to " << client_sock.remote_endpoint(ec) << " via " << client_sock.local_endpoint() << "\n";
 
 		boost::shared_ptr<avsocks::splice<Socks5Session, boost::asio::ip::tcp::socket&, boost::asio::ip::tcp::socket>> splice_ptr;
 
