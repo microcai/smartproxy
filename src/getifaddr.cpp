@@ -1,7 +1,9 @@
 
+#include <boost/predef.h>
+
 #include "getifaddr.hpp"
 
-#ifndef _WIN32
+#if defined(BOOST_OS_UNIX) || defined(BOOST_OS_LINUX)
 
 #include <ifaddrs.h>
 
