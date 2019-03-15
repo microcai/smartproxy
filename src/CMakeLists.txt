@@ -12,7 +12,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(smartsocks5 smartsocks5.cpp)
 
-target_link_libraries(smartsocks5 Boost::thread Boost::program_options Boost::context)
+target_link_libraries(smartsocks5 Boost::thread Boost::program_options Boost::context Boost::coroutine)
 
 target_link_libraries(smartsocks5 utility)
 

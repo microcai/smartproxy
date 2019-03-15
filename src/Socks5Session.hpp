@@ -1,7 +1,7 @@
 
 #pragma once
 
-#include <boost/thread.hpp>
+#include <mutex>
 #include <boost/lexical_cast.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/endian/arithmetic.hpp>
@@ -23,6 +23,13 @@
 #include <iostream>
 #include "steady_clock.hpp"
 #include "splice.hpp"
+
+template<typename F>
+void call_once(std::atomic_flag & flag, F&& f)
+{
+	if (!flag.test_and_set())
+		f();
+}
 
 namespace http = boost::beast::http;    // from <boost/beast/http.hpp>
 
@@ -71,7 +78,7 @@ public:
 		, cfg(cfg)
 	{
 		m_recbuf.sputn(preReadBuf, preReadBufLength);
-		one_upstream = BOOST_ONCE_INIT;
+		one_upstream.clear();
 	}
 
 	Socks5Session(boost::asio::ip::tcp::socket&& socket, proxyconfig& cfg, const char* preReadBuf, std::size_t preReadBufLength)
@@ -80,7 +87,7 @@ public:
 		, cfg(cfg)
 	{
 		m_recbuf.sputn(preReadBuf, preReadBufLength);
-		one_upstream = BOOST_ONCE_INIT;
+		one_upstream.clear();
 	}
 
 
@@ -324,7 +331,7 @@ private:
 			}
 
 			if (!ec)
-				boost::call_once(one_upstream, boost::bind(&Socks5Session::handlesocks5_connection_success, shared_from_this(), boost::ref(client_sock), host, port, up, yield_context));
+				call_once(one_upstream, boost::bind(&Socks5Session::handlesocks5_connection_success, shared_from_this(), boost::ref(client_sock), host, port, up, yield_context));
 		}
 
 	}
@@ -394,7 +401,7 @@ private:
 			return;
 
 		// now , check the first that returns!
-		boost::call_once(one_upstream, boost::bind(&Socks5Session::handle_connection_success, shared_from_this(), boost::ref(client_sock), up, yield_context));
+		call_once(one_upstream, boost::bind(&Socks5Session::handle_connection_success, shared_from_this(), boost::ref(client_sock), up, yield_context));
 	}
 
 	void handle_connection_success(boost::asio::ip::tcp::socket& client_sock, upstream_direct_connect_via_binded_address& up, boost::asio::yield_context yield_context)
@@ -422,7 +429,7 @@ private:
 	boost::asio::ip::tcp::socket m_socket;
 	boost::asio::io_context& m_io;
 
-	boost::once_flag one_upstream;
+	std::atomic_flag one_upstream;
 
 	streambufstorage recv_real_buffer;
 
