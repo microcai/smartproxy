@@ -27,6 +27,23 @@ smartproxy 同时在多条线路上发起对目标网站的连接，并选择速
 
 这个场景下， smartproxy 需要配置。
 
+```json
+
+{
+	"upstreams" : [
+		{
+			"interface": "pppoe0"
+		},
+		{
+			"interface": "pppoe1"
+		},
+		{
+			"socks5" : "localhost",
+			"socks5port": "1080"
+		}
+	]
+}
+```
 
 TODO 配置文件说明
 
@@ -35,7 +52,64 @@ TODO 配置文件说明
 用户有多条 socks5 代理。
 
 
-TODO 配置文件说明
+```json
+
+{
+	"upstreams" : [
+		{
+			"socks5" : "localhost",
+			"socks5port": "1080"
+		},
+		{
+			"socks5" : "localhost",
+			"socks5port": "1081"
+		}
+	]
+}
+```
+
+## 使用场景 4
+
+用户在路由器上拨号，设定192.168.1.30 流量走 pppoe0 , 192.168.1.40 流量走 pppoe1.
+
+```json
+
+{
+	"upstreams" : [
+		{
+			"bind" : "192.168.1.30"
+		},
+		{
+			"bind" : "192.168.1.40"
+		}
+	]
+}
+```
 
 
+## 使用场景 5
+
+用户使用了 VPN , eth0 为普通上网，
+VPN 为 tun0 设备.
+
+```json
+
+{
+	"upstreams" : [
+		{
+			"interface": "eth0"
+		},
+		{
+			"interface": "tun0"
+		},
+	]
+}
+```
+
+注意， 需要
+
+	route add default eth0 gw 网关地址 metric 1
+	route add default tun0 gw vpn的网关地址 metric 1000
+
+把两个设备都加上默认路由， 只是 tun0 设备的 metirc 更大。上面 pppoe0/pppoe1 之类的设定都是同样的道理， 必须要有默认路由。但是用更大的 metric 把它日常排除。
 

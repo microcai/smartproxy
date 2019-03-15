@@ -16,6 +16,12 @@
 		{
 			"socks5" : "localhost",
 			"socks5port": "1080"
+		},
+		{
+			"interface": "eth0"
+		},
+		{
+			"interface": "pppoe0"
 		}
 	]
 }
