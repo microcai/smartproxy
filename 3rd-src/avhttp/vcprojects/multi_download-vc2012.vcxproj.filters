@@ -1,0 +1,131 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="头文件\avhttp">
+      <UniqueIdentifier>{5f043797-1ab7-47c0-b215-2d0c8f56ec41}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\avhttp\detail">
+      <UniqueIdentifier>{8be65954-4cad-423f-8e11-96122048ed0d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="头文件\avhttp\impl">
+      <UniqueIdentifier>{47f1d63e-e248-44ee-96ed-8cc26b97292b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\example\multi_download.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\include\avhttp.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\bencode.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\bitfield.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\entry.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\file.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\http_stream.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\multi_download.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\rangefield.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\settings.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\storage_interface.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\url.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\detail\abi_prefix.hpp">
+      <Filter>头文件\avhttp\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\detail\abi_suffix.hpp">
+      <Filter>头文件\avhttp\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\detail\error_codec.hpp">
+      <Filter>头文件\avhttp\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\detail\escape_string.hpp">
+      <Filter>头文件\avhttp\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\detail\io.hpp">
+      <Filter>头文件\avhttp\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\detail\parsers.hpp">
+      <Filter>头文件\avhttp\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\detail\socket_type.hpp">
+      <Filter>头文件\avhttp\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\detail\ssl_stream.hpp">
+      <Filter>头文件\avhttp\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\detail\utf8.hpp">
+      <Filter>头文件\avhttp\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\detail\handler_type_requirements.hpp">
+      <Filter>头文件\avhttp\detail</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\async_read_body.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\completion_condition.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\logging.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\version.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\cookie.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\file_upload.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avhttp\default_storage.hpp">
+      <Filter>头文件\avhttp</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\include\avhttp\impl\http_stream.ipp">
+      <Filter>头文件\avhttp\impl</Filter>
+    </None>
+    <None Include="..\include\avhttp\impl\file_upload.ipp">
+      <Filter>头文件\avhttp\impl</Filter>
+    </None>
+    <None Include="..\include\avhttp\impl\multi_download.ipp">
+      <Filter>头文件\avhttp\impl</Filter>
+    </None>
+    <None Include="..\include\avhttp\impl\file.ipp">
+      <Filter>头文件\avhttp\impl</Filter>
+    </None>
+  </ItemGroup>
+</Project>

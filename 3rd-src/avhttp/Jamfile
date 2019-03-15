@@ -1,0 +1,174 @@
+import stage ;
+import os ;
+import modules ;
+import errors ;
+import feature : feature ;
+import package ;
+import virtual-target ;
+
+BOOST_ROOT = [ modules.peek : BOOST_ROOT ] ;
+OS = [ os.name ] ;
+
+#使用bjam编译, 必须设置BOOST_ROOT和BOOST_BUILD_PATH这两个环境变量.
+#BOOST_ROOT是boost的所在目录, 比如d:\boost_1_54这样子.
+#BOOST_BUILD_PATH指向比如d:\boost_1_54\tools\build\v2这个路径.
+
+BOOST_ROOT = [ modules.peek : BOOST_ROOT ] ;
+CXXFLAGS = [ modules.peek : CXXFLAGS ] ;
+LDFLAGS = [ modules.peek : LDFLAGS ] ;
+
+ECHO "BOOST_ROOT =" $(BOOST_ROOT) ;
+ECHO "CXXFLAGS =" $(CXXFLAGS) ;
+ECHO "LDFLAGS =" $(LDFLAGS) ;
+ECHO "OS =" [ os.name ] ;
+
+local boost-library-search-path =
+	<search>/opt/local/lib
+	<search>/usr/lib
+	<search>/usr/local/lib
+	<search>$(BOOST_ROOT:T)/stage/lib
+	;
+
+
+lib boost_thread_mgw : : <name>boost_thread-mgw46-mt-1_54 <link>static ;
+lib boost_thread : : <name>boost_thread $(boost-library-search-path) ;
+lib boost_system_mgw : : <name>boost_system-mgw46-mt-1_54 <link>static ;
+lib boost_system : : <name>boost_system $(boost-library-search-path) ;
+lib boost_filesystem_mgw : : <name>boost_filesystem-mgw46-mt-1_54 <link>static ;
+lib boost_filesystem : : <name>boost_filesystem $(boost-library-search-path) ;
+lib boost_regex_mgw : : <name>boost_regex-mgw46-mt-1_54 <link>static ;
+lib boost_regex : : <name>boost_regex $(boost-library-search-path) ;
+lib boost_date_mgw : : <name>boost_date_time-mgw46-mt-1_54 <link>static ;
+lib boost_date : : <name>boost_date_time $(boost-library-search-path) ;
+lib pthread : : <name>pthread $(boost-library-search-path) ;
+lib ws2_32 : : <name>ws2_32 <link>static ;
+
+rule linking ( properties * )
+{
+	local result ;
+
+	#输出所有配置信息, 主要用于参考.
+	for local x in $(properties)
+	{
+		ECHO $(x) ;
+	}
+
+	# windows下编译.
+	if $(OS) = "NT"
+	{
+		# mingw下编译.
+		if <toolset>gcc in $(properties)
+		{
+			result += <library-path>$(BOOST_ROOT:T)/stage/lib ;
+			result +=
+			<library>boost_thread_mgw
+			<library>boost_system_mgw
+			<library>boost_filesystem_mgw
+			<library>boost_regex_mgw
+			<library>boost_date_mgw
+			<library>ws2_32
+			;
+		}
+
+		# vc下编译.
+		if <toolset>msvc in $(properties)
+		{
+			result += <library-path>$(BOOST_ROOT:T)/stage/lib ;
+			result += <linkflags>"user32.lib gdi32.lib kernel32.lib winspool.lib comdlg32.lib advapi32.lib" ;
+			result += <define>WIN32 ;
+			result += <define>_WIN32_WINNT=0x0501 ;
+			result += <define>_CONSOLE ;
+			result += <define>_CRT_SECURE_NO_WARNINGS ;
+			result += <define>_SCL_SECURE_NO_WARNINGS ;
+		}
+	}
+
+	if $(OS) = "LINUX"
+	{
+		result +=
+		<library>boost_thread
+		<library>boost_system
+		<library>boost_filesystem
+		<library>boost_regex
+		;
+	}
+	return $(result) ;
+}
+
+local usage-requirements =
+	<conditional>@linking
+	;
+
+project avhttp : requirements
+	<include>./include
+	<include>$(BOOST_ROOT:T)
+	<warnings>off
+	: build-dir bin
+	;
+	
+project ip138 : requirements
+	<include>./include
+	<include>$(BOOST_ROOT:T)
+	<warnings>off
+	: build-dir bin
+	;
+
+project async_http : requirements
+	<include>./include
+	<include>$(BOOST_ROOT:T)
+	<warnings>off
+	: build-dir bin
+	;
+
+
+MULTI_SOURCES =
+	example/multi_download.cpp
+	;
+
+exe avhttp 
+	: $(MULTI_SOURCES)
+	: $(usage-requirements)
+	:
+	<link>static
+	<runtime-link>static
+	<threading>multi
+	;
+
+IP138_SOURCES =
+	example/ip138.cpp
+	;
+
+exe ip138 
+	: $(IP138_SOURCES)
+	: $(usage-requirements)
+	:
+	<link>static
+	<runtime-link>static
+	<threading>multi
+	;
+
+ASYNC_SOURCE =
+	example/async_http_stream.cpp
+	;
+
+exe async_http
+	: $(ASYNC_SOURCE)
+	: $(usage-requirements)
+	:
+	<link>static
+	<runtime-link>static
+	<threading>multi
+	;
+
+IMAGEBIN_SOURCE =
+	example/imagebin.cpp
+	;
+
+exe imagebin
+	: $(IMAGEBIN_SOURCE)
+	: $(usage-requirements)
+	:
+	<link>static
+	<runtime-link>static
+	<threading>multi
+	;

@@ -1,0 +1,39 @@
+language: cpp
+dist: trusty
+sudo: false
+os:
+  - linux
+
+compiler:
+  - gcc
+  - clang
+
+before_install:
+  - sudo apt-get update
+  - sudo apt-get install zlib1g-dev
+  - wget https://dl.bintray.com/boostorg/release/1.65.1/source/boost_1_65_1.tar.bz2
+  - sudo apt-get install ninja
+  - tar -xf boost_1_65_1.tar.bz2
+  - ( cd boost_1_65_1  && ./bootstrap.sh --prefix=/usr --with-libraries=date_time,filesystem,exception,log,locale,random,regex,program_options,system,thread && sudo ./b2 -j2 link=static install ) > /dev/null
+
+before_script:
+  cmake . -DDEBUG=1
+
+script:
+    - make
+    - ./avhttp http://www.boost.org/LICENSE_1_0.txt
+    - ./avhttp https://github.com/blog
+    - cat ./multi_download.log
+
+branches:
+  only:
+    - master
+    - C++11
+notifications:
+  recipients:
+    - microcaicai@gmail.com
+    - jack.wgm@gmail.com
+  email:
+    on_success: change
+    on_failure: always
+
