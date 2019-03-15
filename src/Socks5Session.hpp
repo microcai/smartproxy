@@ -321,7 +321,10 @@ private:
 		client_sock.async_connect(remote_to_connect, yield_context[ec]);
 
 		if (ec)
+		{
+			std::cerr << "\t\tunable to use socks5 proxy(" << remote_to_connect << "), connect error: " << ec.message() << '\n';
 			return;
+		}
 
 		// now , check the first that returns!
 
