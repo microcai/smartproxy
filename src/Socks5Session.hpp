@@ -314,7 +314,11 @@ private:
 					case 3:
 					{
 						int l = rep_buf_head[4];
+#ifdef _MSC_VER
+						char buf[100];
+#else
 						char buf[l + 2];
+#endif
 						boost::asio::async_read(client_sock, boost::asio::buffer(buf, l + 2), boost::asio::transfer_exactly(l + 2), yield_context[ec]);
 					}
 					break;
