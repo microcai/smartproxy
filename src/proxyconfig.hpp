@@ -10,13 +10,18 @@ struct upstream_direct_connect_via_binded_address
 	std::string bind_addr; // the address that the outgoing socket bindto.
 };
 
+struct upstream_direct_connect_via_binded_interface
+{
+	std::string bindiface; // the interface that the outgoing socket bindto.
+};
+
 struct upstream_socks5
 {
 	std::string sock_host;
 	std::string sock_port;
 };
 
-typedef std::variant<upstream_direct_connect_via_binded_address, upstream_socks5>  upstream_desc;
+typedef std::variant<upstream_direct_connect_via_binded_address, upstream_direct_connect_via_binded_interface, upstream_socks5>  upstream_desc;
 
 struct proxyconfig
 {

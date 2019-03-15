@@ -24,6 +24,8 @@
 #include "steady_clock.hpp"
 #include "splice.hpp"
 
+#include "getifaddr.hpp"
+
 template<typename F>
 void call_once(std::atomic_flag & flag, F&& f)
 {
@@ -186,7 +188,22 @@ private:
 		{
 			void operator()(const upstream_direct_connect_via_binded_address& up) const
 			{
-				boost::asio::spawn(_this->m_io, boost::bind(&Socks5Session::direct_connect_coroutine, _this->shared_from_this(), host, port, up, _1));
+				boost::asio::spawn(
+					_this->m_io,
+					[this, up](boost::asio::yield_context yield_context)
+					{
+						_this->direct_connect_coroutine(host, port, up, yield_context);
+					});
+			}
+
+			void operator()(const upstream_direct_connect_via_binded_interface& up) const
+			{
+				boost::asio::spawn(
+					_this->m_io,
+					[this, up](boost::asio::yield_context yield_context)
+					{
+						_this->direct_connect_coroutine(host, port, up, yield_context);
+					});
 			}
 
 			void operator()(const upstream_socks5& up) const
@@ -361,7 +378,8 @@ private:
 		}
 	}
 
-	void direct_connect_coroutine(std::string host, int port, upstream_direct_connect_via_binded_address& up, boost::asio::yield_context yield_context)
+	template<typename UPSTREAM_DESC>
+	void direct_connect_coroutine(std::string host, int port, UPSTREAM_DESC&& up, boost::asio::yield_context yield_context)
 	{
 		std::string port_s = std::to_string(port);
 
@@ -382,13 +400,15 @@ private:
 		for (auto remote_to_connect : endpoints_range)
 		{
 			boost::asio::spawn(
-				m_io,
-				boost::bind(&Socks5Session::connect_all_dnsresult_coroutine, shared_from_this(), remote_to_connect, up, _1)
+				m_io, [this, remote_to_connect, up, _this = shared_from_this()](boost::asio::yield_context yield_context)
+				{
+					connect_all_dnsresult_coroutine(remote_to_connect, up, yield_context);
+				}
 			);
 		}
 	}
 
-	void connect_all_dnsresult_coroutine(boost::asio::ip::tcp::endpoint remote_to_connect, upstream_direct_connect_via_binded_address& up, boost::asio::yield_context yield_context)
+	void connect_all_dnsresult_coroutine(boost::asio::ip::tcp::endpoint remote_to_connect, const upstream_direct_connect_via_binded_address& up, boost::asio::yield_context yield_context)
 	{
 		auto bind_addr = boost::asio::ip::address::from_string(up.bind_addr);
 
@@ -404,11 +424,42 @@ private:
 		if (ec)
 			return;
 
-		// now , check the first that returns!
-		call_once(one_upstream, boost::bind(&Socks5Session::handle_connection_success, shared_from_this(), boost::ref(client_sock), up, yield_context));
+		call_once(one_upstream, [&client_sock, &up, &yield_context, this](){
+			handle_connection_success(client_sock, up, yield_context);
+		});
+
 	}
 
-	void handle_connection_success(boost::asio::ip::tcp::socket& client_sock, upstream_direct_connect_via_binded_address& up, boost::asio::yield_context yield_context)
+	void connect_all_dnsresult_coroutine(boost::asio::ip::tcp::endpoint remote_to_connect, const upstream_direct_connect_via_binded_interface& up, boost::asio::yield_context yield_context)
+	{
+		boost::asio::ip::tcp::socket client_sock(m_io);
+
+		client_sock.open(remote_to_connect.protocol());
+
+		boost::asio::ip::address bind_addr;
+
+		if (remote_to_connect.address().is_v6())
+			bind_addr = getifaddrv6(up.bindiface);
+		else
+			bind_addr = getifaddrv4(up.bindiface);
+
+
+		client_sock.bind(boost::asio::ip::tcp::endpoint(bind_addr, 0));
+
+		boost::system::error_code ec;
+
+		client_sock.async_connect(remote_to_connect, yield_context[ec]);
+
+		if (ec)
+			return;
+
+		// now , check the first that returns!
+		call_once(one_upstream, [&client_sock, &up, &yield_context, this](){
+			handle_connection_success(client_sock, up, yield_context);
+		});
+	}
+
+	void handle_connection_success(boost::asio::ip::tcp::socket& client_sock, const upstream_direct_connect_via_binded_address& up, boost::asio::yield_context yield_context)
 	{
 		boost::system::error_code ec;
 		if (ec)
@@ -426,7 +477,26 @@ private:
 		);
 
 		splice_ptr->start();
+	}
 
+	void handle_connection_success(boost::asio::ip::tcp::socket& client_sock, const upstream_direct_connect_via_binded_interface& up, boost::asio::yield_context yield_context)
+	{
+		boost::system::error_code ec;
+		if (ec)
+			return;
+		// 向 client 返回链接成功信息.
+		m_socket.async_write_some(asio::buffer("\005\000\000\001\000\000\000\000\000\000",10), yield_context[ec]);
+
+		std::cerr << "fastest connect to " << client_sock.remote_endpoint() << " via " << client_sock.local_endpoint() << "\n";
+
+		boost::shared_ptr<avsocks::splice<Socks5Session, boost::asio::ip::tcp::socket&, boost::asio::ip::tcp::socket>> splice_ptr;
+
+		// start doing splice now.
+		splice_ptr.reset(
+			new avsocks::splice<Socks5Session, boost::asio::ip::tcp::socket&, boost::asio::ip::tcp::socket>(shared_from_this(), m_socket, std::move(client_sock))
+		);
+
+		splice_ptr->start();
 	}
 
 private:

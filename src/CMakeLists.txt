@@ -10,7 +10,7 @@ endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-add_executable(smartsocks5 smartsocks5.cpp)
+add_executable(smartsocks5 smartsocks5.cpp getifaddr.cpp)
 
 target_link_libraries(smartsocks5 Boost::thread Boost::program_options Boost::context)
 
