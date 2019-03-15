@@ -3,7 +3,7 @@
 
 #include "getifaddr.hpp"
 
-#if defined(BOOST_OS_LINUX)
+#if defined(__linux)
 
 #include <ifaddrs.h>
 
