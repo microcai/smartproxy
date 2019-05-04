@@ -15,7 +15,7 @@ class ioworker
 public:
 	ioworker(boost::asio::ip::tcp::acceptor& acceptor)
 		: acceptor_(acceptor)
-		, socket_(acceptor.get_io_context())
+		, socket_(acceptor.get_executor())
 	{
 	}
 
@@ -36,7 +36,7 @@ private:
 
 	// The timer putting a time limit on requests.
 	utility::steady_timer request_deadline_{
-		acceptor_.get_io_context(), (utility::steady_clock::time_point::max)()};
+		acceptor_.get_executor(), (utility::steady_clock::time_point::max)()};
 
 	void accept()
 	{

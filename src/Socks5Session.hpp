@@ -74,18 +74,18 @@ class Socks5Session : public boost::enable_shared_from_this<Socks5Session>
 	using alloc_t = fields_alloc<char>;
 
 public:
-	Socks5Session(boost::asio::ip::tcp::socket&& socket, proxyconfig&& cfg, const char* preReadBuf, std::size_t preReadBufLength)
-		: m_socket(std::move(socket))
-		, m_io(m_socket.get_io_context())
+	Socks5Session(boost::asio::io_context& io, boost::asio::ip::tcp::socket&& socket, proxyconfig&& cfg, const char* preReadBuf, std::size_t preReadBufLength)
+		: m_io(io)
+		, m_socket(std::move(socket))
 		, cfg(cfg)
 	{
 		m_recbuf.sputn(preReadBuf, preReadBufLength);
 		one_upstream.clear();
 	}
 
-	Socks5Session(boost::asio::ip::tcp::socket&& socket, proxyconfig& cfg, const char* preReadBuf, std::size_t preReadBufLength)
-		: m_socket(std::move(socket))
-		, m_io(m_socket.get_io_context())
+	Socks5Session(boost::asio::io_context& io, boost::asio::ip::tcp::socket&& socket, proxyconfig& cfg, const char* preReadBuf, std::size_t preReadBufLength)
+		: m_io(io)
+		, m_socket(std::move(socket))
 		, cfg(cfg)
 	{
 		m_recbuf.sputn(preReadBuf, preReadBufLength);
@@ -567,8 +567,8 @@ private:
 	}
 
 private:
-	boost::asio::ip::tcp::socket m_socket;
 	boost::asio::io_context& m_io;
+	boost::asio::ip::tcp::socket m_socket;
 
 	std::atomic_flag one_upstream;
 

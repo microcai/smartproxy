@@ -21,10 +21,10 @@ static proxyconfig parse_config(std::string configfile);
 
 static boost::pool_allocator<Socks5Session> clientalloc;
 
-static void process_socks5_client(boost::asio::ip::tcp::socket& socket, const char* preReadBuf, std::size_t preReadBufLength, proxyconfig& cfg)
+static void process_socks5_client(boost::asio::io_context& io, boost::asio::ip::tcp::socket& socket, const char* preReadBuf, std::size_t preReadBufLength, proxyconfig& cfg)
 {
 	try{
-		auto s = boost::allocate_shared<Socks5Session>(clientalloc, static_cast<boost::asio::ip::tcp::socket&&>(socket), cfg, preReadBuf, preReadBufLength);
+		auto s = boost::allocate_shared<Socks5Session>(clientalloc, io, static_cast<boost::asio::ip::tcp::socket&&>(socket), cfg, preReadBuf, preReadBufLength);
 		s->start();
 	}catch(std::bad_alloc&)
 	{
@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
 	{
 		workers.emplace_back(accept_sockets[0]);
 
-		workers.back().on_accept_socks5.connect(boost::bind(process_socks5_client, _1, _2, _3, boost::ref(cfg)));
+		workers.back().on_accept_socks5.connect(boost::bind(process_socks5_client, boost::ref(io), _1, _2, _3, boost::ref(cfg)));
 
 //		workers.back().on_accept_http.connect(boost::bind(process_http_client, _1, _2, _3, boost::ref(cfg)));
 
@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
 
 		workers.emplace_back(accept_sockets[1]);
 
-		workers.back().on_accept_socks5.connect(boost::bind(process_socks5_client, _1, _2, _3, boost::ref(cfg)));
+		workers.back().on_accept_socks5.connect(boost::bind(process_socks5_client, boost::ref(io), _1, _2, _3, boost::ref(cfg)));
 
 //		workers.back().on_accept_http.connect(boost::bind(process_http_client, _1, _2, _3, boost::ref(cfg)));
 
