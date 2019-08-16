@@ -8,6 +8,8 @@ if (HAVE_MSG_DONTWAIT)
 	add_definitions(-DHAVE_MSG_DONTWAIT)
 endif()
 
+add_definitions(-DBOOST_ASIO_NO_DEPRECATED)
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(smartsocks5 smartsocks5.cpp getifaddr.cpp)

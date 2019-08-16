@@ -9,6 +9,7 @@
 #include <boost/bind.hpp>
 #include <boost/enable_shared_from_this.hpp>
 
+#include <boost/asio.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/spawn.hpp>
@@ -80,7 +81,8 @@ public:
 		, cfg(cfg)
 	{
 		m_recbuf.sputn(preReadBuf, preReadBufLength);
-		one_upstream.clear();
+		one_connect_success.clear();
+		one_response.clear();
 	}
 
 	Socks5Session(boost::asio::io_context& io, boost::asio::ip::tcp::socket&& socket, proxyconfig& cfg, const char* preReadBuf, std::size_t preReadBufLength)
@@ -89,7 +91,8 @@ public:
 		, cfg(cfg)
 	{
 		m_recbuf.sputn(preReadBuf, preReadBufLength);
-		one_upstream.clear();
+		one_connect_success.clear();
+		one_response.clear();
 	}
 
 
@@ -102,7 +105,7 @@ public:
 			if(ec)
 				return;
 
-			const boost::uint8_t* buffer = boost::asio::buffer_cast<const boost::uint8_t*>(m_recbuf.data());
+			const boost::uint8_t* buffer = static_cast<const boost::uint8_t*>(m_recbuf.data().data());
 			int count =  buffer[1];
 
 			if (std::find(&buffer[1], &buffer[count+2], 0) !=  &buffer[count+2])
@@ -137,7 +140,7 @@ private:
 
 		m_recbuf.commit(bytes_transferred);
 
-		const boost::uint8_t* buffer = boost::asio::buffer_cast<const boost::uint8_t*>(m_recbuf.data());
+		const boost::uint8_t* buffer = static_cast<const boost::uint8_t*>(m_recbuf.data().data());
 
 		if(buffer[0]==5 && buffer[1] == 1)
 		{
@@ -176,7 +179,7 @@ private:
 		if(ec)
 			return;
 		m_recbuf.commit(bytes_transferred);
-		const char* buffer = boost::asio::buffer_cast<const char*>(m_recbuf.data());
+		const boost::uint8_t* buffer = static_cast<const boost::uint8_t*>(m_recbuf.data().data());
 
 		boost::asio::ip::address_v4::bytes_type ip;
 		m_recbuf.sgetn((char*) &ip, 4);
@@ -199,7 +202,7 @@ private:
 		if(ec)
 			return;
 		m_recbuf.commit(bytes_transferred);
-		const char* buffer = boost::asio::buffer_cast<const char*>(m_recbuf.data());
+		const boost::uint8_t* buffer = static_cast<const boost::uint8_t*>(m_recbuf.data().data());
 
 		boost::asio::ip::address_v6::bytes_type ip;
 		m_recbuf.sgetn((char*) &ip, 16);
@@ -221,15 +224,17 @@ private:
 		if(ec)
 			return;
 		m_recbuf.commit(bytes_transferred);
-		const char* buffer = boost::asio::buffer_cast<const char*>(m_recbuf.data());
+		const boost::uint8_t* buffer = static_cast<const boost::uint8_t*>(m_recbuf.data().data());
 
 		std::string host;
-		host.assign(buffer, m_recbuf.size()-2);
+		host.assign((const char*)buffer, m_recbuf.size()-2);
 		int port = boost::endian::big_to_native( *(boost::uint16_t*)(buffer+ m_recbuf.size()-2));
 		// 好的，目的地址和端口都获得了， 开启全部的 upstream，让 upstream 来干接下来的脏活.
 		m_recbuf.consume(m_recbuf.size());
 
 		std::cerr << "receive proxy request to : " << host << ": " << port << std::endl;
+
+		// 然后继续读取 一部分 client 已经发来的 请求内容.
 
 		send_out_all_upstream(host, port);
 	}
@@ -294,16 +299,16 @@ private:
 
 		utility::steady_timer delay_timer(m_io);
 
-		delay_timer.expires_from_now(boost::chrono::milliseconds(250));
+		delay_timer.expires_after(boost::chrono::milliseconds(250));
 
 		delay_timer.async_wait(yield_context[ec]);
 
-		auto endpoints_range = resolver.async_resolve(boost::asio::ip::tcp::resolver::query(up.sock_host, up.sock_port), yield_context[ec]);
+		boost::asio::ip::tcp::resolver::results_type endpoints_range = resolver.async_resolve(up.sock_host, up.sock_port, yield_context[ec]);
 
 		if (ec)
 			return;
 
-		for (auto remote_to_connect : endpoints_range)
+		for (boost::asio::ip::tcp::endpoint remote_to_connect : endpoints_range)
 		{
 			boost::asio::spawn(
 				m_io,
@@ -407,7 +412,7 @@ private:
 			}
 
 			if (!ec)
-				call_once(one_upstream, boost::bind(&Socks5Session::handlesocks5_connection_success, shared_from_this(), boost::ref(client_sock), host, port, up, yield_context));
+				handlesocks5_connection_success(client_sock, host, port, up, yield_context);
 		}
 
 	}
@@ -444,7 +449,7 @@ private:
 
 		std::cerr << "\ttry direct connecting to " << host << "\n";
 
-		auto endpoints_range = resolver.async_resolve(boost::asio::ip::tcp::resolver::query(host, port_s), yield_context[ec]);
+		boost::asio::ip::tcp::resolver::results_type endpoints_range = resolver.async_resolve(host, port_s, yield_context[ec]);
 
 		if (ec)
 		{
@@ -465,7 +470,7 @@ private:
 
 	void connect_all_dnsresult_coroutine(boost::asio::ip::tcp::endpoint remote_to_connect, const upstream_direct_connect_via_binded_address& up, boost::asio::yield_context yield_context)
 	{
-		auto bind_addr = boost::asio::ip::address::from_string(up.bind_addr);
+		auto bind_addr = boost::asio::ip::make_address(up.bind_addr);
 
 		boost::asio::ip::tcp::socket client_sock(m_io);
 
@@ -491,10 +496,7 @@ private:
 		if (ec)
 			return;
 
-		call_once(one_upstream, [&client_sock, &up, &yield_context, this](){
-			handle_connection_success(client_sock, up, yield_context);
-		});
-
+		handle_connection_success(client_sock, up, yield_context);
 	}
 
 	void connect_all_dnsresult_coroutine(boost::asio::ip::tcp::endpoint remote_to_connect, const upstream_direct_connect_via_binded_interface& up, boost::asio::yield_context yield_context)
@@ -519,11 +521,8 @@ private:
 
 		if (ec)
 			return;
-
 		// now , check the first that returns!
-		call_once(one_upstream, [&client_sock, &up, &yield_context, this](){
-			handle_connection_success(client_sock, up, yield_context);
-		});
+		handle_connection_success(client_sock, up, yield_context);
 	}
 
 	void handle_connection_success(boost::asio::ip::tcp::socket& client_sock, const upstream_direct_connect_via_binded_address& up, boost::asio::yield_context yield_context)
@@ -531,6 +530,7 @@ private:
 		boost::system::error_code ec;
 		if (ec)
 			return;
+
 		// 向 client 返回链接成功信息.
 		m_socket.async_write_some(asio::buffer("\005\000\000\001\000\000\000\000\000\000",10), yield_context[ec]);
 
@@ -570,7 +570,8 @@ private:
 	boost::asio::io_context& m_io;
 	boost::asio::ip::tcp::socket m_socket;
 
-	std::atomic_flag one_upstream;
+	std::atomic_flag one_connect_success;
+	std::atomic_flag one_response;
 
 	streambufstorage recv_real_buffer;
 
