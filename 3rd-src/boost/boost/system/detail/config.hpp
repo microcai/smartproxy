@@ -47,10 +47,12 @@
 
 #define BOOST_SYSTEM_REQUIRE_CONST_INIT
 
+#ifndef _MSC_VER
 #if defined(__has_cpp_attribute)
 #if __has_cpp_attribute(clang::require_constant_initialization)
 # undef BOOST_SYSTEM_REQUIRE_CONST_INIT
 # define BOOST_SYSTEM_REQUIRE_CONST_INIT [[clang::require_constant_initialization]]
+#endif
 #endif
 #endif
 

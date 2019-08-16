@@ -4,6 +4,18 @@ project(Boost)
 option(Boost_USE_STATIC_LIBS "" ON)
 option(DISABLE_BOOST_LOCALE "not build boost.locale" OFF)
 
+find_path(LAMZ_INCLUDE_DIR lzma.h PATH /usr/include /usr/local/include )
+find_library(LAMZ_LIBRARY NAMES lzma)
+
+find_package(ZLIB)
+find_package(Iconv)
+
+if (LAMZ_INCLUDE_DIR AND LAMZ_LIBRARY)
+  set(LZMA_FOUND TRUE)
+else ()
+  set(LZMA_FOUND FALSE)
+endif ()
+
 if(WIN32)
 ENABLE_LANGUAGE(ASM_MASM)
 else()
@@ -46,7 +58,6 @@ if(WIN32)
 	)
 else()
 	set(BOOST_THREAD_SRC
-		libs/thread/src/tss_null.cpp
 		libs/thread/src/future.cpp
 		libs/thread/src/pthread/thread.cpp
 		libs/thread/src/pthread/once_atomic.cpp
@@ -106,8 +117,11 @@ else()
 	elseif ("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "aarch64")
 		set(SYSABI "aapcs")
 		set(ARCH "arm64")
+	elseif ("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "i686")
+		set(SYSABI "sysv")
+		set(ARCH "i386")
 	else()
-		message(FATAL_ERROR "unsupported cpu")
+		message(FATAL_ERROR "unsupported cpu: ${CMAKE_SYSTEM_PROCESSOR}" )
 	endif()
 endif()
 
@@ -184,12 +198,14 @@ set(BOOST_FILESYSTEM_SRC
 	libs/filesystem/src/operations.cpp
 	libs/filesystem/src/unique_path.cpp
 	libs/filesystem/src/utf8_codecvt_facet.cpp
-	libs/filesystem/src/windows_file_codecvt.hpp
 	libs/filesystem/src/codecvt_error_category.cpp
 	libs/filesystem/src/path.cpp
-	libs/filesystem/src/windows_file_codecvt.cpp
 	libs/filesystem/src/portability.cpp
 )
+
+if (WIN32)
+	list(APPEND BOOST_FILESYSTEM_SRC 	libs/filesystem/src/windows_file_codecvt.cpp)
+endif()
 
 set(BOOST_LOCALE_SRC
 	libs/locale/src/encoding/codepage.cpp
@@ -233,21 +249,18 @@ if (WIN32)
 		libs/locale/src/win32/lcid.hpp
 	)
 else()
-	list(APPEND BOOST_LOCALE_SRC
-		libs/locale/src/posix/all_generator.hpp
-libs/locale/src/posix/codecvt.hpp
-libs/locale/src/posix/posix_backend.cpp
-libs/locale/src/posix/converter.cpp
-libs/locale/src/posix/posix_backend.hpp
-libs/locale/src/posix/numeric.cpp
-libs/locale/src/posix/collate.cpp
-libs/locale/src/posix/codecvt.cpp
-
-	)
-endif()
-
-if(CMAKE_COMPILER_IS_GNUCXX)
-	add_definitions(-DBOOST_LOCALE_WITH_ICONV)
+	if (Iconv_FOUND)
+		list(APPEND BOOST_LOCALE_SRC
+			libs/locale/src/posix/all_generator.hpp
+			libs/locale/src/posix/codecvt.hpp
+			libs/locale/src/posix/posix_backend.cpp
+			libs/locale/src/posix/converter.cpp
+			libs/locale/src/posix/posix_backend.hpp
+			libs/locale/src/posix/numeric.cpp
+			libs/locale/src/posix/collate.cpp
+			libs/locale/src/posix/codecvt.cpp
+		)
+	endif()
 endif()
 
 set(BOOST_PROGRAM_OPTIONS_SRC
@@ -263,6 +276,25 @@ set(BOOST_PROGRAM_OPTIONS_SRC
 	libs/program_options/src/cmdline.cpp
 	libs/program_options/src/config_file.cpp
 )
+
+set(BOOST_IOSTREAM_SRC
+	libs/iostreams/src/mapped_file.cpp
+	libs/iostreams/src/file_descriptor.cpp
+)
+
+if (LZMA_FOUND)
+	list(APPEND BOOST_IOSTREAM_SRC
+		libs/iostreams/src/lzma.cpp
+	)
+	message("boost iostreams enable lzma support")
+endif()
+
+if (ZLIB_FOUND)
+	list(APPEND BOOST_IOSTREAM_SRC
+		libs/iostreams/src/zlib.cpp
+	)
+	message("boost iostreams enable zip support")
+endif()
 
 set(BOOST_TIMER_SRC
 	libs/timer/src/auto_timers_construction.cpp
@@ -328,29 +360,27 @@ if (NOT DISABLE_BOOST_LOCALE)
 	if(Boost_USE_STATIC_LIBS)
 		add_library(boost_locale STATIC ${BOOST_LOCALE_SRC})
 		add_library(Boost::locale ALIAS boost_locale)
-		if(WIN32)
-			target_compile_definitions(boost_locale PRIVATE -DBOOST_LOCALE_WITH_WCONV)
-		else()
-			target_compile_definitions(boost_locale PRIVATE -DBOOST_LOCALE_WITH_ICONV)
-		endif()
 
-		if(APPLE)
-		target_link_libraries(boost_locale iconv)
+		if (Iconv_FOUND)
+			target_compile_definitions(boost_locale PRIVATE -DBOOST_LOCALE_WITH_ICONV)
+			if (NOT Iconv_IS_BUILT_IN)
+				target_link_libraries(boost_locale Iconv::Iconv)
+				target_include_directories(boost_locale PRIVATE ${Iconv_INCLUDE_DIRS})
+			endif()
 		endif()
 
 	else()
 		add_library(boost_locale SHARED ${BOOST_LOCALE_SRC})
 		add_library(Boost::locale ALIAS boost_locale)
 
-		if(WIN32)
-			target_compile_definitions(boost_locale PRIVATE -DBOOST_LOCALE_WITH_WCONV)
-		else()
+		if (Iconv_FOUND)
 			target_compile_definitions(boost_locale PRIVATE -DBOOST_LOCALE_WITH_ICONV)
+			if (NOT Iconv_IS_BUILT_IN)
+				target_link_libraries(boost_locale Iconv::Iconv)
+				target_include_directories(boost_locale PRIVATE ${Iconv_INCLUDE_DIRS})
+			endif()
 		endif()
 
-		if(APPLE)
-		target_link_libraries(boost_locale iconv)
-		endif()
 	endif()
 
 endif()
@@ -377,6 +407,23 @@ add_library(Boost::timer ALIAS boost_timer)
 else()
 add_library(boost_timer SHARED ${BOOST_TIMER_SRC})
 add_library(Boost::timer ALIAS boost_timer)
+endif()
+
+if(Boost_USE_STATIC_LIBS)
+add_library(boost_iostreams STATIC ${BOOST_IOSTREAM_SRC})
+add_library(Boost::iostreams ALIAS boost_iostreams)
+else()
+add_library(boost_iostreams SHARED ${BOOST_IOSTREAM_SRC})
+add_library(Boost::iostreams ALIAS boost_iostreams)
+endif()
+
+if (LZMA_FOUND)
+	target_link_libraries(boost_iostreams ${LAMZ_LIBRARY})
+	target_include_directories(boost_iostreams PUBLIC ${LAMZ_INCLUDE_DIR})
+endif()
+if (ZLIB_FOUND)
+	target_link_libraries(boost_iostreams ${ZLIB_LIBRARY})
+	target_include_directories(boost_iostreams PUBLIC ${ZLIB_INCLUDE_DIRS})
 endif()
 
 if(Boost_USE_STATIC_LIBS)
@@ -430,6 +477,7 @@ endif()
 target_link_libraries(boost_date_time boost_chrono boost_header)
 target_link_libraries(boost_regex boost_header)
 target_link_libraries(boost_timer boost_chrono boost_header)
+target_link_libraries(boost_iostreams boost_header)
 target_link_libraries(boost_exception boost_header)
 target_link_libraries(boost_random boost_header)
 target_link_libraries(boost_program_options boost_filesystem boost_header)
@@ -496,3 +544,4 @@ set_target_properties(boost_timer PROPERTIES FOLDER "third_party/boost")
 set_target_properties(boost_exception PROPERTIES FOLDER "third_party/boost")
 set_target_properties(boost_random PROPERTIES FOLDER "third_party/boost")
 set_target_properties(boost_program_options PROPERTIES FOLDER "third_party/boost")
+set_target_properties(boost_iostreams PROPERTIES FOLDER "third_party/boost")
