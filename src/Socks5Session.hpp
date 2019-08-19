@@ -422,9 +422,11 @@ private:
 
 		boost::asio::streambuf buff;
 
-		std::atomic_flag upstream_first_pkg_sending = false;
+		std::atomic_flag upstream_first_pkg_sending;
+		upstream_first_pkg_sending.clear();
 
-		std::atomic_bool upstream_first_pkg_sended = false;
+		std::atomic_bool upstream_first_pkg_sended;
+		upstream_first_pkg_sended = false;
 
 		// so it is actually much simple, start read from upstream, the first upstream that returns, win the selection process.
 		multiread_first_pkg(first_read_tag, m_clientsocket, buff.prepare(4096), [&upstream_socket, &upstream_first_pkg_sending, &upstream_first_pkg_sended, &buff](boost::system::error_code ec, std::size_t bytes_transferred)
