@@ -251,7 +251,7 @@ private:
 					_this->m_io,
 					[this, up](boost::asio::yield_context yield_context)
 					{
-						_this->direct_connect_coroutine(host, port, up, yield_context);
+						_this->direct_connect_coroutine(host, port, up, std::move(yield_context));
 					});
 			}
 
@@ -261,7 +261,7 @@ private:
 					_this->m_io,
 					[this, up](boost::asio::yield_context yield_context)
 					{
-						_this->direct_connect_coroutine(host, port, up, yield_context);
+						_this->direct_connect_coroutine(host, port, up, std::move(yield_context));
 					});
 			}
 
@@ -315,10 +315,10 @@ private:
 	void socks5_all_dnsresult_coroutine(boost::asio::ip::tcp::endpoint remote_to_connect, upstream_socks5& up, std::string host, int port, boost::asio::yield_context yield_context)
 	{
 		boost::system::error_code ec;
-		boost::asio::ip::tcp::socket client_sock(m_io);
+		boost::asio::ip::tcp::socket upstream_socks5_socket(m_io);
 
-		client_sock.open(remote_to_connect.protocol());
-		client_sock.async_connect(remote_to_connect, yield_context[ec]);
+		upstream_socks5_socket.open(remote_to_connect.protocol());
+		upstream_socks5_socket.async_connect(remote_to_connect, yield_context[ec]);
 
 		if (ec)
 		{
@@ -330,7 +330,7 @@ private:
 
 		// then send request to socks5 server.
 
-		boost::asio::async_write(client_sock, boost::asio::buffer("\x05\x01\x00", 3), yield_context[ec]);
+		boost::asio::async_write(upstream_socks5_socket, boost::asio::buffer("\x05\x01\x00", 3), yield_context[ec]);
 
 		if (ec)
 			return;
@@ -338,7 +338,7 @@ private:
 
 		unsigned char buf[2];
 
-		boost::asio::async_read(client_sock, boost::asio::buffer(buf), yield_context[ec]);
+		boost::asio::async_read(upstream_socks5_socket, boost::asio::buffer(buf), yield_context[ec]);
 		if (ec)
 			return;
 		// check for 0500
@@ -362,12 +362,12 @@ private:
 
 			len = host.length() + 7;
 
-			boost::asio::async_write(client_sock, boost::asio::buffer(req_buf, len), boost::asio::transfer_exactly(len), yield_context[ec]);
+			boost::asio::async_write(upstream_socks5_socket, boost::asio::buffer(req_buf, len), boost::asio::transfer_exactly(len), yield_context[ec]);
 			if (ec)
 				return;
 			// and then waiting for reply
 			unsigned char rep_buf_head[5];
-			boost::asio::async_read(client_sock, boost::asio::buffer(rep_buf_head), boost::asio::transfer_at_least(4),yield_context[ec]);
+			boost::asio::async_read(upstream_socks5_socket, boost::asio::buffer(rep_buf_head), boost::asio::transfer_at_least(4),yield_context[ec]);
 
 			if (ec)
 				return;
@@ -380,7 +380,7 @@ private:
 					{
 						char buf[6];
 						buf[0] = rep_buf_head[4];
-						boost::asio::async_read(client_sock, boost::asio::buffer(buf+1, 5), boost::asio::transfer_exactly(5), yield_context[ec]);
+						boost::asio::async_read(upstream_socks5_socket, boost::asio::buffer(buf+1, 5), boost::asio::transfer_exactly(5), yield_context[ec]);
 					}
 					break;
 					case 3:
@@ -391,14 +391,14 @@ private:
 #else
 						char buf[l + 2];
 #endif
-						boost::asio::async_read(client_sock, boost::asio::buffer(buf, l + 2), boost::asio::transfer_exactly(l + 2), yield_context[ec]);
+						boost::asio::async_read(upstream_socks5_socket, boost::asio::buffer(buf, l + 2), boost::asio::transfer_exactly(l + 2), yield_context[ec]);
 					}
 					break;
 					case 4:
 					{
 						char buf[18];
 						buf[0] = rep_buf_head[4];
-						boost::asio::async_read(client_sock, boost::asio::buffer(buf + 1, 17), boost::asio::transfer_exactly(17), yield_context[ec]);
+						boost::asio::async_read(upstream_socks5_socket, boost::asio::buffer(buf + 1, 17), boost::asio::transfer_exactly(17), yield_context[ec]);
 					}
 					break;
 					default:
@@ -407,61 +407,113 @@ private:
 			}
 
 			if (!ec)
-				handlesocks5_connection_success(client_sock, host, port, up, yield_context);
+				handlesocks5_connection_success(upstream_socks5_socket, host, port, up, yield_context);
 		}
 	}
 
-	void sync_first_communicate(boost::asio::ip::tcp::socket& upstream_socket, boost::asio::yield_context& yield_context)
+	template<typename Handler>
+	struct sync_first_communicate_op : boost::asio::coroutine
 	{
-		// the first communicate, read some bytes from client, then send it to upstream.
-		// afster upstream reponse, write the response to client.
+		Handler handler;
+		boost::asio::ip::tcp::socket& upstream_socket;
+		boost::asio::ip::tcp::socket& m_clientsocket;
+		multiread_first_tag& first_tag;
 
-		// and the first one that responsed, win the selection process.
+		typedef void result_type;
 
-		// but what if the client did not send request first?
+		struct shared_tag_member{
+			std::array<char, 4096> buff;
+			int buff_readed = 0;
+			std::atomic_flag upstream_first_pkg_sending = ATOMIC_FLAG_INIT;
+			std::atomic_bool upstream_first_pkg_sended = std::atomic_bool(false);
+		};
 
-		boost::asio::streambuf buff;
+		std::shared_ptr<shared_tag_member> m_shared_member;
 
-		std::atomic_flag upstream_first_pkg_sending;
-		upstream_first_pkg_sending.clear();
+		std::shared_ptr<utility::steady_timer> t;
 
-		std::atomic_bool upstream_first_pkg_sended;
-		upstream_first_pkg_sended = false;
-
-		// so it is actually much simple, start read from upstream, the first upstream that returns, win the selection process.
-		multiread_first_pkg(first_read_tag, m_clientsocket, buff.prepare(4096), [&upstream_socket, &upstream_first_pkg_sending, &upstream_first_pkg_sended, &buff](boost::system::error_code ec, std::size_t bytes_transferred)
+		sync_first_communicate_op(multiread_first_tag& first_tag, boost::asio::ip::tcp::socket& m_clientsocket,  boost::asio::ip::tcp::socket& upstream_socket, Handler&& handler)
+			: upstream_socket(upstream_socket)
+			, m_clientsocket(m_clientsocket)
+			, handler(handler)
+			, t(new utility::steady_timer(upstream_socket.get_executor()))
+			, first_tag(first_tag)
 		{
-			buff.commit(bytes_transferred);
-			// client readed. need to send to upstream.
-			if (!upstream_first_pkg_sending.test_and_set())
+		}
+
+		void operator()(boost::system::error_code ec = {}, std::size_t bytes_transferred = 0)
+		{
+			BOOST_ASIO_CORO_REENTER(this)
 			{
-				// send to upstream!
-				boost::asio::async_write(upstream_socket, buff, boost::asio::transfer_all(), [&upstream_first_pkg_sended](boost::system::error_code ec, std::size_t bytes_transferred)
+
+				m_shared_member = std::make_shared<shared_tag_member>();
+
+				std::cerr << "sync_first_communicate_op begin\n";
+
+				// the first communicate, read some bytes from client, then send it to upstream.
+				// afster upstream reponse, write the response to client.
+
+				// and the first one that responsed, win the selection process.
+
+				// but what if the client did not send request first?
+
+				// so it is actually much simple, start read from upstream, the first upstream that returns, win the selection process.
+				multiread_first_pkg(first_tag, m_clientsocket, boost::asio::buffer(m_shared_member->buff), [up_socket = & upstream_socket, shared_member = m_shared_member](boost::system::error_code ec, std::size_t bytes_transferred) mutable
 				{
-					// send ok. proceed.
-					upstream_first_pkg_sended = true;
+					shared_member->buff_readed = bytes_transferred;
+					// client readed. need to send to upstream.
+					if (!shared_member->upstream_first_pkg_sending.test_and_set())
+					{
+						std::cerr << "got client req, length = " << bytes_transferred << " \n";
+						// send to upstream!
+						boost::asio::async_write(*up_socket, boost::asio::buffer(shared_member->buff, shared_member->buff_readed),  boost::asio::transfer_exactly(bytes_transferred), [shared_member](boost::system::error_code ec, std::size_t bytes_transferred)
+						{
+							// send ok. proceed.
+							shared_member->upstream_first_pkg_sended = true;
+						});
+					}
+					else
+					{
+						std::cerr << "got client req send later\n";
+					}
+
 				});
+
+				// multiple upstream request will go here.
+				BOOST_ASIO_CORO_YIELD upstream_socket.async_wait(asio::socket_base::wait_read, *this);
+
+				if (!m_shared_member->upstream_first_pkg_sending.test_and_set())
+				{
+					std::cerr << "send client req in alter mode\n";
+					BOOST_ASIO_CORO_YIELD boost::asio::async_write(upstream_socket, boost::asio::buffer(m_shared_member->buff, m_shared_member->buff_readed),  boost::asio::transfer_exactly(m_shared_member->buff_readed), *this);
+					m_shared_member->upstream_first_pkg_sended = true;
+				}
+
+				while (!m_shared_member->upstream_first_pkg_sended){
+					t->expires_after(boost::chrono::milliseconds(1));
+					BOOST_ASIO_CORO_YIELD t->async_wait(*this);
+				}
+
+				std::cerr << ec.message( ) << "\n";
+
+				boost::asio::post(upstream_socket.get_executor(), std::bind(handler, ec));
+
+				// the first coroutine that goes here, wins the selection.
 			}
-
-		});
-
-		// multiple upstream request will go here.
-		upstream_socket.async_wait(asio::socket_base::wait_read, yield_context);
-
-		if (!upstream_first_pkg_sending.test_and_set())
-		{
-			boost::asio::async_write(upstream_socket, buff, yield_context);
-			upstream_first_pkg_sended = true;
 		}
 
-		while (!upstream_first_pkg_sended){
-			utility::steady_timer t(m_clientsocket.get_executor());
+	};
 
-			t.expires_after(boost::chrono::milliseconds(1));
-			t.async_wait(yield_context);
-		}
+	template<typename Handler>
+	BOOST_ASIO_INITFN_RESULT_TYPE(Handler, void(boost::system::error_code))
+	sync_first_communicate(boost::asio::ip::tcp::socket& upstream_socket, Handler&& handler)
+	{
+		// ASYNC_HANDLER_TYPE_CHECK(Handler, void(boost::system::error_code, std::size_t));
+		boost::asio::async_completion<Handler, void(boost::system::error_code)> init(handler);
 
-		// the first coroutine that goes here, wins the selection.
+		sync_first_communicate_op<std::decay_t<decltype(init.completion_handler)>>(first_read_tag, m_clientsocket, upstream_socket, std::move(init.completion_handler))();
+
+		return init.result.get();
 	}
 
 	template<typename UPSTREAM_DESC>
@@ -495,12 +547,8 @@ private:
 	}
 
 
-	void connect_all_dnsresult_coroutine(boost::asio::ip::tcp::endpoint remote_to_connect, const upstream_direct_connect_via_binded_interface& up, boost::asio::yield_context yield_context)
+	void connect_all_dnsresult_coroutine(boost::asio::ip::tcp::endpoint remote_to_connect, const upstream_direct_connect_via_binded_interface& up, boost::asio::yield_context& yield_context)
 	{
-		boost::asio::ip::tcp::socket client_sock(m_io);
-
-		client_sock.open(remote_to_connect.protocol());
-
 		boost::asio::ip::address bind_addr;
 
 		if (remote_to_connect.address().is_v6())
@@ -508,12 +556,17 @@ private:
 		else
 			bind_addr = getifaddrv4(up.bindiface);
 
+		boost::asio::ip::tcp::socket client_sock(m_io);
+
+		client_sock.open(bind_addr.is_v6() ? boost::asio::ip::tcp::v6(): boost::asio::ip::tcp::v4() );
 
 		client_sock.bind(boost::asio::ip::tcp::endpoint(bind_addr, 0));
 
 		boost::system::error_code ec;
 
+		std::cerr << "connecting to " << remote_to_connect << "\n";
 		client_sock.async_connect(remote_to_connect, yield_context[ec]);
+		std::cerr << "connected to " << remote_to_connect << "\t" << ec.message() << "\n";
 
 		if (ec)
 			return;
@@ -544,7 +597,9 @@ private:
 
 		boost::system::error_code ec;
 
+		std::cerr << "connecting to " << remote_to_connect << "\n";
 		client_sock.async_connect(remote_to_connect, yield_context[ec]);
+		std::cerr << "connected to " << remote_to_connect << "\t" << ec.message() << "\n";
 
 		if (ec)
 			return;
@@ -552,23 +607,27 @@ private:
 		handle_connection_success(client_sock, up, yield_context);
 	}
 
-	void handle_connection_success(boost::asio::ip::tcp::socket& client_sock, const upstream_direct_connect_via_binded_address& up, boost::asio::yield_context yield_context)
+	void handle_connection_success(boost::asio::ip::tcp::socket& client_sock, const upstream_direct_connect_via_binded_address& up, boost::asio::yield_context& yield_context)
 	{
 		boost::system::error_code ec;
-		if (ec)
-			return;
 
 		// 向 client 返回链接成功信息.
 		call_once(one_response, [&, this](){
 			m_clientsocket.async_write_some(asio::buffer("\005\000\000\001\000\000\000\000\000\000",10), yield_context[ec]);
 		});
 
+		if (ec)
+		{
+			std::cerr << "error writing to client\n";
+			return;
+		}
+
 		// now, read the first request, and send it over to the remote.
-		sync_first_communicate(client_sock, yield_context);
+		sync_first_communicate(client_sock, yield_context[ec]);
 
 		if (!ec)
 		{
-			call_once(one_connect_success, [&, this]()
+			if (!one_connect_success.test_and_set())
 			{
 				std::cerr << "fastest connect to " << client_sock.remote_endpoint(ec) << " via " << client_sock.local_endpoint() << "\n";
 
@@ -580,11 +639,13 @@ private:
 				);
 
 				splice_ptr->start();
-			});
+			};
 		}
+
+		std::cerr << "proxy select done\n";
 	}
 
-	void handle_connection_success(boost::asio::ip::tcp::socket& upstream_socket, const upstream_direct_connect_via_binded_interface& up, boost::asio::yield_context yield_context)
+	void handle_connection_success(boost::asio::ip::tcp::socket& upstream_socket, const upstream_direct_connect_via_binded_interface& up, boost::asio::yield_context& yield_context)
 	{
 		boost::system::error_code ec;
 		if (ec)
@@ -595,11 +656,11 @@ private:
 		});
 
 		// now, read the first request, and send it over to the remote.
-		sync_first_communicate(upstream_socket, yield_context);
+		sync_first_communicate(upstream_socket, yield_context[ec]);
 
 		if (!ec)
 		{
-			call_once(one_connect_success, [&, this]()
+			if (!one_connect_success.test_and_set())
 			{
 				std::cerr << "fastest connect to " << upstream_socket.remote_endpoint(ec) << " via " << upstream_socket.local_endpoint() << "\n";
 
@@ -611,11 +672,11 @@ private:
 				);
 
 				splice_ptr->start();
-			});
+			};
 		}
 	}
 
-	void handlesocks5_connection_success(boost::asio::ip::tcp::socket& client_sock, std::string host, int port, upstream_socks5& up, boost::asio::yield_context yield_context)
+	void handlesocks5_connection_success(boost::asio::ip::tcp::socket& client_sock, std::string host, int port, upstream_socks5& up, boost::asio::yield_context& yield_context)
 	{
 		boost::system::error_code ec;
 		// 向 client 返回链接成功信息.
@@ -624,12 +685,13 @@ private:
 		});
 
 		// now, read the first request, and send it over to the remote.
-		sync_first_communicate(client_sock, yield_context);
-
+		std::cerr << "syncing socks5\n";
+		sync_first_communicate(client_sock, yield_context[ec]);
+		std::cerr << "syncing socks5 done\n";
 		// after remote response, start spice
 		if (!ec)
 		{
-			call_once(one_connect_success, [&, this]()
+			if (!one_connect_success.test_and_set())
 			{
 				std::cerr << "fastest connect to " << host << ":" << port << " via socks5 proxy: " << up.sock_host << ":" << up.sock_port << "\n";
 
@@ -641,7 +703,7 @@ private:
 					);
 
 					splice_ptr->start();
-			});
+			};
 		}
 	}
 
