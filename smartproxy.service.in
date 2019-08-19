@@ -3,7 +3,7 @@ Description=SmartProxy
 DefaultDependencies=no
 
 [Service]
-ExecStart=@prefix@/bin/smartproxy
+ExecStart=@CMAKE_INSTALL_PREFIX@/bin/smartproxy
 
 [Install]
 WantedBy=multi-user.target

@@ -100,3 +100,5 @@ add_subdirectory(utility)
 add_subdirectory(src)
 
 configure_file(smartproxy.service.in smartproxy.service)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/smartproxy.service DESTINATION /usr/lib/systemd/system/)
