@@ -1,0 +1,27 @@
+
+{
+	"upstreams" : [
+		{
+			"bind" : "0.0.0.0"
+		},
+		{
+			"bind" : "::"
+		},
+		{
+			"socks5" : "localhost",
+			"socks5port": "1080"
+		},
+		{
+			"socks5" : "localhost",
+			"socks5port": "1081"
+		},
+		{
+			"socks5" : "localhost",
+			"socks5port": "1082"
+		},
+		{
+			"socks5" : "localhost",
+			"socks5port": "1083"
+		},
+	]
+}
