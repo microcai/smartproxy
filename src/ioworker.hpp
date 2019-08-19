@@ -57,7 +57,7 @@ private:
 				{
 					// Request must be fully processed within 60 seconds.
 					request_deadline_.expires_after(
-						boost::chrono::seconds(1));
+						boost::chrono::seconds(4));
 
 					request_deadline_.async_wait(boost::bind(&ioworker::check_deadline, this, _1));
 
