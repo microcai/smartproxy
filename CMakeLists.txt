@@ -99,3 +99,4 @@ include_directories(3rd-src/avhttp/include)
 add_subdirectory(utility)
 add_subdirectory(src)
 
+configure_file(smartproxy.service.in smartproxy.service)

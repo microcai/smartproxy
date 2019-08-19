@@ -1,0 +1,9 @@
+[Unit]
+Description=SmartProxy
+DefaultDependencies=no
+
+[Service]
+ExecStart=@prefix@/bin/smartproxy
+
+[Install]
+WantedBy=multi-user.target
