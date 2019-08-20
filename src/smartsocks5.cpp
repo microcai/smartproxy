@@ -129,6 +129,14 @@ static proxyconfig parse_config(std::string configfile)
 	ud2.sock_port = "1080";
 	cfg.upstreams.push_back(ud2);
 
+	ud2.sock_host = "127.0.0.1";
+	ud2.sock_port = "1081";
+	cfg.upstreams.push_back(ud2);
+
+	ud2.sock_host = "127.0.0.1";
+	ud2.sock_port = "1082";
+	cfg.upstreams.push_back(ud2);
+
 	std::ifstream ifile(configfile);
 
 	if (ifile.is_open())

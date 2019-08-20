@@ -457,16 +457,16 @@ private:
 				// so it is actually much simple, start read from upstream, the first upstream that returns, win the selection process.
 				multiread_first_pkg(first_tag, m_clientsocket, boost::asio::buffer(m_shared_member->buff), [up_socket = & upstream_socket, shared_member = m_shared_member](boost::system::error_code ec, std::size_t bytes_transferred) mutable
 				{
-					if (ec)
-					{
-						up_socket->cancel(ec);
-						return;
-					}
-
 					shared_member->buff_readed = bytes_transferred;
 					// client readed. need to send to upstream.
 					if (!shared_member->upstream_first_pkg_sending.test_and_set())
 					{
+						if (ec)
+						{
+							up_socket->cancel(ec);
+							shared_member->upstream_first_pkg_sended = true; // fake, but make it not block forever
+							return;
+						}
 						// send to upstream!
 						boost::asio::async_write(*up_socket, boost::asio::buffer(shared_member->buff, shared_member->buff_readed),  boost::asio::transfer_exactly(bytes_transferred), [shared_member](boost::system::error_code ec, std::size_t bytes_transferred)
 						{
@@ -488,8 +488,12 @@ private:
 
 				if (!m_shared_member->upstream_first_pkg_sending.test_and_set())
 				{
-					BOOST_ASIO_CORO_YIELD boost::asio::async_write(upstream_socket, boost::asio::buffer(m_shared_member->buff, m_shared_member->buff_readed),  boost::asio::transfer_exactly(m_shared_member->buff_readed), *this);
-					m_shared_member->upstream_first_pkg_sended = true;
+					if (m_shared_member->buff_readed > 0)
+					{
+						BOOST_ASIO_CORO_YIELD boost::asio::async_write(upstream_socket, boost::asio::buffer(m_shared_member->buff, m_shared_member->buff_readed),  boost::asio::transfer_exactly(m_shared_member->buff_readed), *this);
+						boost::asio::post(upstream_socket.get_executor(), std::bind(handler, ec));
+						return;
+					}
 				}
 
 				while (!m_shared_member->upstream_first_pkg_sended){
