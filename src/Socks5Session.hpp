@@ -445,10 +445,7 @@ private:
 		{
 			BOOST_ASIO_CORO_REENTER(this)
 			{
-
 				m_shared_member = std::make_shared<shared_tag_member>();
-
-				std::cerr << "sync_first_communicate_op begin\n";
 
 				// the first communicate, read some bytes from client, then send it to upstream.
 				// afster upstream reponse, write the response to client.
@@ -460,11 +457,16 @@ private:
 				// so it is actually much simple, start read from upstream, the first upstream that returns, win the selection process.
 				multiread_first_pkg(first_tag, m_clientsocket, boost::asio::buffer(m_shared_member->buff), [up_socket = & upstream_socket, shared_member = m_shared_member](boost::system::error_code ec, std::size_t bytes_transferred) mutable
 				{
+					if (ec)
+					{
+						up_socket->cancel(ec);
+						return;
+					}
+
 					shared_member->buff_readed = bytes_transferred;
 					// client readed. need to send to upstream.
 					if (!shared_member->upstream_first_pkg_sending.test_and_set())
 					{
-						std::cerr << "got client req, length = " << bytes_transferred << " \n";
 						// send to upstream!
 						boost::asio::async_write(*up_socket, boost::asio::buffer(shared_member->buff, shared_member->buff_readed),  boost::asio::transfer_exactly(bytes_transferred), [shared_member](boost::system::error_code ec, std::size_t bytes_transferred)
 						{
@@ -472,19 +474,20 @@ private:
 							shared_member->upstream_first_pkg_sended = true;
 						});
 					}
-					else
-					{
-						std::cerr << "got client req send later\n";
-					}
 
 				});
 
 				// multiple upstream request will go here.
 				BOOST_ASIO_CORO_YIELD upstream_socket.async_wait(asio::socket_base::wait_read, *this);
 
+				if (ec)
+				{
+					boost::asio::post(upstream_socket.get_executor(), std::bind(handler, ec));
+					return;
+				}
+
 				if (!m_shared_member->upstream_first_pkg_sending.test_and_set())
 				{
-					std::cerr << "send client req in alter mode\n";
 					BOOST_ASIO_CORO_YIELD boost::asio::async_write(upstream_socket, boost::asio::buffer(m_shared_member->buff, m_shared_member->buff_readed),  boost::asio::transfer_exactly(m_shared_member->buff_readed), *this);
 					m_shared_member->upstream_first_pkg_sended = true;
 				}
@@ -494,11 +497,8 @@ private:
 					BOOST_ASIO_CORO_YIELD t->async_wait(*this);
 				}
 
-				std::cerr << ec.message( ) << "\n";
-
-				boost::asio::post(upstream_socket.get_executor(), std::bind(handler, ec));
-
 				// the first coroutine that goes here, wins the selection.
+				boost::asio::post(upstream_socket.get_executor(), std::bind(handler, ec));
 			}
 		}
 
