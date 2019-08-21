@@ -292,9 +292,6 @@ private:
 
 	void socks5_connect_coroutine(std::string host, int port, upstream_socks5& up, boost::asio::yield_context yield_context)
 	{
-
-		std::cerr << "\ttry use socks5 to connect:" << host << "\n";
-
 		boost::system::error_code ec;
 
 		boost::asio::ip::tcp::resolver resolver(m_io);
@@ -529,8 +526,6 @@ private:
 
 		boost::system::error_code ec;
 
-		std::cerr << "\ttry direct connecting to " << host << "\n";
-
 		boost::asio::ip::tcp::resolver::results_type endpoints_range = resolver.async_resolve(host, port_s, yield_context[ec]);
 
 		if (ec)
@@ -568,9 +563,7 @@ private:
 
 		boost::system::error_code ec;
 
-		std::cerr << "connecting to " << remote_to_connect << "\n";
 		client_sock.async_connect(remote_to_connect, yield_context[ec]);
-		std::cerr << "connected to " << remote_to_connect << "\t" << ec.message() << "\n";
 
 		if (ec)
 			return;
@@ -601,9 +594,7 @@ private:
 
 		boost::system::error_code ec;
 
-		std::cerr << "connecting to " << remote_to_connect << "\n";
 		client_sock.async_connect(remote_to_connect, yield_context[ec]);
-		std::cerr << "connected to " << remote_to_connect << "\t" << ec.message() << "\n";
 
 		if (ec)
 			return;
@@ -633,7 +624,7 @@ private:
 		{
 			if (!one_connect_success.test_and_set())
 			{
-				std::cerr << "fastest connect to " << client_sock.remote_endpoint(ec) << " via " << client_sock.local_endpoint() << "\n";
+				std::cerr << "proxy to " << client_sock.remote_endpoint(ec) << " via " << client_sock.local_endpoint() << "\n";
 
 				boost::shared_ptr<avsocks::splice<Socks5Session, boost::asio::ip::tcp::socket&, boost::asio::ip::tcp::socket>> splice_ptr;
 
@@ -666,7 +657,7 @@ private:
 		{
 			if (!one_connect_success.test_and_set())
 			{
-				std::cerr << "fastest connect to " << upstream_socket.remote_endpoint(ec) << " via " << upstream_socket.local_endpoint() << "\n";
+				std::cerr << "direct connect to " << upstream_socket.remote_endpoint(ec) << std::endl;
 
 				boost::shared_ptr<avsocks::splice<Socks5Session, boost::asio::ip::tcp::socket&, boost::asio::ip::tcp::socket>> splice_ptr;
 
@@ -689,15 +680,13 @@ private:
 		});
 
 		// now, read the first request, and send it over to the remote.
-		std::cerr << "syncing socks5\n";
 		sync_first_communicate(client_sock, yield_context[ec]);
-		std::cerr << "syncing socks5 done\n";
 		// after remote response, start spice
 		if (!ec)
 		{
 			if (!one_connect_success.test_and_set())
 			{
-				std::cerr << "fastest connect to " << host << ":" << port << " via socks5 proxy: " << up.sock_host << ":" << up.sock_port << "\n";
+				std::cerr << "proxy to " << host << ":" << port << " via socks5 proxy: " << up.sock_host << ":" << up.sock_port << "\n";
 
 				boost::shared_ptr<avsocks::splice<Socks5Session, boost::asio::ip::tcp::socket&, boost::asio::ip::tcp::socket>> splice_ptr;
 

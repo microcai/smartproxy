@@ -94,8 +94,8 @@ boost::asio::ip::address_v6 getifaddrv6(std::string ifname)
 					if (rawbytes_of_addr[0] == 0xfd || rawbytes_of_addr[0] == 0xfc)
 						continue;
 
-					printf("\tInterface : <%s>\n",ifaddr_iterator->ifa_name );
-					printf("\t  Address : <%s>\n", v6addr.to_string().c_str());
+//					printf("\tInterface : <%s>\n",ifaddr_iterator->ifa_name );
+//					printf("\t  Address : <%s>\n", v6addr.to_string().c_str());
 
 					return v6addr;
 				}
