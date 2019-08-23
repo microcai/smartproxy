@@ -24,7 +24,6 @@ static boost::pool_allocator<Socks5Session> clientalloc;
 static void process_socks5_client(boost::asio::io_context& io, boost::asio::ip::tcp::socket& socket, const char* preReadBuf, std::size_t preReadBufLength, proxyconfig& cfg)
 {
 	try{
-		std::cerr << "new client\n";
 		auto s = boost::allocate_shared<Socks5Session>(clientalloc, io, static_cast<boost::asio::ip::tcp::socket&&>(socket), cfg, preReadBuf, preReadBufLength);
 		s->start();
 	}catch(std::bad_alloc&)

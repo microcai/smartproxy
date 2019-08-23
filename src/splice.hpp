@@ -67,7 +67,7 @@ private:
 	void s2s1_handle_read(const boost::system::error_code & ec, std::size_t bytes_transferred){
 		if(!ec){
 			s2s1buf.commit(bytes_transferred);
-			s1.async_write_some(s2s1buf.data(),
+			boost::asio::async_write(s1, s2s1buf, boost::asio::transfer_all(),
 				boost::bind(&splice<T,S1,S2>::s2s1_handle_write,shared_from_this(),ASIO_WRITE_PLACEHOLDERS)
 			);
 		}else if (ec == boost::asio::error::eof){
