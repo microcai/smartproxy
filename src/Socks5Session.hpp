@@ -412,8 +412,8 @@ private:
 	struct sync_first_communicate_op : boost::asio::coroutine
 	{
 		Handler handler;
-		boost::asio::ip::tcp::socket& upstream_socket;
-		boost::asio::ip::tcp::socket& m_clientsocket;
+		boost::asio::ip::tcp::socket* upstream_socket;
+		boost::asio::ip::tcp::socket* m_clientsocket;
 		multiread_first_tag& first_tag;
 
 		typedef void result_type;
@@ -423,17 +423,21 @@ private:
 			int buff_readed = 0;
 			std::atomic_flag upstream_first_pkg_sending = ATOMIC_FLAG_INIT;
 			std::atomic_bool upstream_first_pkg_sended = std::atomic_bool(false);
+
+			std::atomic_flag upstream_splice_flag = ATOMIC_FLAG_INIT;
+
+			std::shared_ptr<utility::steady_timer> delay_cancal_upstream_read_timer;
 		};
 
 		std::shared_ptr<shared_tag_member> m_shared_member;
 
 		std::shared_ptr<utility::steady_timer> t;
 
-		sync_first_communicate_op(multiread_first_tag& first_tag, boost::asio::ip::tcp::socket& m_clientsocket,  boost::asio::ip::tcp::socket& upstream_socket, Handler&& handler)
+		sync_first_communicate_op(multiread_first_tag& first_tag, boost::asio::ip::tcp::socket* m_clientsocket,  boost::asio::ip::tcp::socket* upstream_socket, Handler&& handler)
 			: upstream_socket(upstream_socket)
 			, m_clientsocket(m_clientsocket)
 			, handler(handler)
-			, t(new utility::steady_timer(upstream_socket.get_executor()))
+			, t(new utility::steady_timer(upstream_socket->get_executor()))
 			, first_tag(first_tag)
 		{
 		}
@@ -452,7 +456,7 @@ private:
 				// but what if the client did not send request first?
 
 				// so it is actually much simple, start read from upstream, the first upstream that returns, win the selection process.
-				multiread_first_pkg(first_tag, m_clientsocket, boost::asio::buffer(m_shared_member->buff), [up_socket = & upstream_socket, shared_member = m_shared_member](boost::system::error_code ec, std::size_t bytes_transferred) mutable
+				multiread_first_pkg(first_tag, *m_clientsocket, boost::asio::buffer(m_shared_member->buff), [ up_socket = upstream_socket, shared_member = m_shared_member](boost::system::error_code ec, std::size_t bytes_transferred) mutable
 				{
 					shared_member->buff_readed = bytes_transferred;
 					// client readed. need to send to upstream.
@@ -465,21 +469,46 @@ private:
 							return;
 						}
 						// send to upstream!
-						boost::asio::async_write(*up_socket, boost::asio::buffer(shared_member->buff, shared_member->buff_readed),  boost::asio::transfer_exactly(bytes_transferred), [shared_member](boost::system::error_code ec, std::size_t bytes_transferred)
+						boost::asio::async_write(*up_socket, boost::asio::buffer(shared_member->buff, shared_member->buff_readed),  boost::asio::transfer_exactly(bytes_transferred), [up_socket, shared_member](boost::system::error_code ec, std::size_t bytes_transferred)
 						{
 							// send ok. proceed.
 							shared_member->upstream_first_pkg_sended = true;
+							shared_member->delay_cancal_upstream_read_timer = std::make_shared<utility::steady_timer>(up_socket->get_executor());
+							shared_member->delay_cancal_upstream_read_timer->expires_after(boost::chrono::milliseconds(1));
+
+							// and wait for 500ms and then detach reading from upstream.
+							shared_member->delay_cancal_upstream_read_timer->async_wait([shared_member, up_socket](boost::system::error_code ec)
+							{
+								if (!ec)
+								{
+									if (!shared_member->upstream_splice_flag.test_and_set())
+										up_socket->cancel(ec);
+								}
+							});
+
+							//BOOST_ASIO_CORO_YIELD t->async_wait(*this);
+
+
 						});
 					}
 
 				});
 
 				// multiple upstream request will go here.
-				BOOST_ASIO_CORO_YIELD upstream_socket.async_wait(asio::socket_base::wait_read, *this);
+				BOOST_ASIO_CORO_YIELD upstream_socket->async_wait(asio::socket_base::wait_read, *this);
+
+				if (ec == boost::asio::error::operation_aborted)
+				{
+					if (m_shared_member->upstream_first_pkg_sended)
+					{
+						boost::asio::post(upstream_socket->get_executor(), std::bind(handler, boost::system::error_code()));
+						return;
+					}
+				}
 
 				if (ec)
 				{
-					boost::asio::post(upstream_socket.get_executor(), std::bind(handler, ec));
+					boost::asio::post(upstream_socket->get_executor(), std::bind(handler, ec));
 					return;
 				}
 
@@ -487,8 +516,8 @@ private:
 				{
 					if (m_shared_member->buff_readed > 0)
 					{
-						BOOST_ASIO_CORO_YIELD boost::asio::async_write(upstream_socket, boost::asio::buffer(m_shared_member->buff, m_shared_member->buff_readed),  boost::asio::transfer_exactly(m_shared_member->buff_readed), *this);
-						boost::asio::post(upstream_socket.get_executor(), std::bind(handler, ec));
+						BOOST_ASIO_CORO_YIELD boost::asio::async_write(*upstream_socket, boost::asio::buffer(m_shared_member->buff, m_shared_member->buff_readed),  boost::asio::transfer_exactly(m_shared_member->buff_readed), *this);
+						boost::asio::post(upstream_socket->get_executor(), std::bind(handler, ec));
 						return;
 					}
 				}
@@ -498,8 +527,17 @@ private:
 					BOOST_ASIO_CORO_YIELD t->async_wait(*this);
 				}
 
-				// the first coroutine that goes here, wins the selection.
-				boost::asio::post(upstream_socket.get_executor(), std::bind(handler, ec));
+				if (!m_shared_member->upstream_splice_flag.test_and_set())
+				{
+					// the first coroutine that goes here, wins the selection.
+					boost::asio::post(upstream_socket->get_executor(), std::bind(handler, ec));
+				}
+				else
+				{
+					// the first coroutine that goes here, wins the selection.
+					boost::asio::post(upstream_socket->get_executor(), std::bind(handler, boost::asio::error::make_error_code(asio::error::operation_aborted)));
+				}
+
 			}
 		}
 
@@ -512,7 +550,7 @@ private:
 		// ASYNC_HANDLER_TYPE_CHECK(Handler, void(boost::system::error_code, std::size_t));
 		boost::asio::async_completion<Handler, void(boost::system::error_code)> init(handler);
 
-		sync_first_communicate_op<std::decay_t<decltype(init.completion_handler)>>(first_read_tag, m_clientsocket, upstream_socket, std::move(init.completion_handler))();
+		sync_first_communicate_op<std::decay_t<decltype(init.completion_handler)>>(first_read_tag, &m_clientsocket, &upstream_socket, std::move(init.completion_handler))();
 
 		return init.result.get();
 	}
