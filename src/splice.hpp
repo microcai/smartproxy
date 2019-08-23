@@ -43,7 +43,7 @@ private:
 	void s1s2_handle_read(const boost::system::error_code & ec, std::size_t bytes_transferred){
 		if(!ec){
 			s1s2buf.commit(bytes_transferred);
-			s2.async_write_some(s1s2buf.data(),
+			boost::asio::async_write(s2, s1s2buf, boost::asio::transfer_all(),
 				boost::bind(&splice<T,S1,S2>::s1s2_handle_write,shared_from_this(),ASIO_WRITE_PLACEHOLDERS)
 			);
 		}
@@ -59,6 +59,8 @@ private:
 	void s1s2_handle_write(const boost::system::error_code & ec, std::size_t bytes_transferred){
 		if(!ec){
 			s1s2buf.consume(bytes_transferred);
+
+			std::cerr << "upload " << bytes_transferred << " bytes to upstream\n";
 			s1.async_read_some(s1s2buf.prepare(SPLICE_SIZE),
 				boost::bind(&splice<T,S1,S2>::s1s2_handle_read,shared_from_this(),ASIO_READ_PLACEHOLDERS)
 			);
