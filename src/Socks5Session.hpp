@@ -672,10 +672,8 @@ private:
 				);
 
 				splice_ptr->start();
-			};
+			}
 		}
-
-		std::cerr << "proxy select done\n";
 	}
 
 	void handle_connection_success(boost::asio::ip::tcp::socket& upstream_socket, const upstream_direct_connect_via_binded_interface& up, boost::asio::yield_context& yield_context)
