@@ -4,6 +4,7 @@ DefaultDependencies=no
 
 [Service]
 ExecStart=@CMAKE_INSTALL_PREFIX@/bin/smartproxy
+LimitNOFILE=900000
 
 [Install]
 WantedBy=multi-user.target
