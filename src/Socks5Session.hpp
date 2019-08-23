@@ -474,7 +474,7 @@ private:
 							// send ok. proceed.
 							shared_member->upstream_first_pkg_sended = true;
 							shared_member->delay_cancal_upstream_read_timer = std::make_shared<utility::steady_timer>(up_socket->get_executor());
-							shared_member->delay_cancal_upstream_read_timer->expires_after(boost::chrono::microseconds(800));
+							shared_member->delay_cancal_upstream_read_timer->expires_after(boost::chrono::seconds(5));
 
 							// and wait for 500ms and then detach reading from upstream.
 							shared_member->delay_cancal_upstream_read_timer->async_wait([shared_member, up_socket](boost::system::error_code ec)
