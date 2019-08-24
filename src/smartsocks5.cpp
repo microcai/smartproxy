@@ -35,6 +35,17 @@ static void process_socks5_client(boost::asio::io_context& io, boost::asio::ip::
 
 int main(int argc, char* argv[])
 {
+#ifndef _WIN32
+	struct rlimit rlp;
+
+	getrlimit(RLIMIT_NOFILE, &rlp);
+
+	rlp.rlim_cur = 10000;
+	setrlimit(RLIMIT_NOFILE, &rlp);
+	getrlimit(RLIMIT_NOFILE, &rlp);
+	printf("rlimit changed to %d %d\n", rlp.rlim_cur, rlp.rlim_max);
+#endif
+
 	std::string config;
 
 	options_description desc("options");
