@@ -31,11 +31,11 @@ static void process_socks5_client(boost::asio::io_context& io, boost::asio::ip::
 		std::cerr << "bad_alloc"  << std::endl;
 	}
 }
-
-
-int main(int argc, char* argv[])
-{
 #ifndef _WIN32
+#include <sys/resource.h>
+
+void ulimit_limit()
+{
 	struct rlimit rlp;
 
 	getrlimit(RLIMIT_NOFILE, &rlp);
@@ -44,8 +44,13 @@ int main(int argc, char* argv[])
 	setrlimit(RLIMIT_NOFILE, &rlp);
 	getrlimit(RLIMIT_NOFILE, &rlp);
 	printf("rlimit changed to %d %d\n", rlp.rlim_cur, rlp.rlim_max);
+}
+#else
+void ulimit_limit(){}
 #endif
-
+int main(int argc, char* argv[])
+{
+	ulimit_limit();
 	std::string config;
 
 	options_description desc("options");
