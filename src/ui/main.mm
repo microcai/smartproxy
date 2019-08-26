@@ -32,21 +32,22 @@ int main(int argc, char* argv[])
 	}
 
 	ulimit_limit();
-    [NSApplication sharedApplication];
 
-    NSStatusBar *bar = [NSStatusBar systemStatusBar];
+	std::thread([]()
+	{
+		[NSApplication sharedApplication];
 
-    auto theItem = [bar statusItemWithLength:NSVariableStatusItemLength];
-    [theItem retain];
+		NSStatusBar *bar = [NSStatusBar systemStatusBar];
 
-    [theItem setTitle: NSLocalizedString(@"SmartProxy",@"")];
-    [theItem setHighlightMode:YES];
-//    [theItem setMenu:theMenu];
-    
+		auto theItem = [bar statusItemWithLength:NSVariableStatusItemLength];
+		[theItem retain];
 
-    auto network = boost::thread(boost::bind(&proxy_main, args));
+		[theItem setTitle: NSLocalizedString(@"SmartProxy",@"")];
+		[theItem setHighlightMode:YES];
+	//  [theItem setMenu:theMenu];
+		[NSApp run];
+	}).detach();
 
-    [NSApp run];
-    network.join();
+	proxy_main(args);
 }
 
