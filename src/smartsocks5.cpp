@@ -16,6 +16,7 @@ using po::variables_map;
 #include "proxyconfig.hpp"
 
 #include "Socks5Session.hpp"
+#include "ui/statusbar.h"
 
 static proxyconfig parse_config(std::string configfile);
 
