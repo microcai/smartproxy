@@ -26,5 +26,9 @@ endif()
 
 target_link_libraries(smartproxy utility)
 
+if (APPLE)
+	target_link_libraries(smartproxy -framework Cocoa)
+endif()
+
 
 install(TARGETS smartproxy DESTINATION bin)

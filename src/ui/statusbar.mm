@@ -1,5 +1,5 @@
 
-#include <AppKit/NSStatusBar.h>
+#include <Cocoa/Cocoa.h>
 #include "statusbar.h"
 
 void show_statusbar()
