@@ -1,4 +1,5 @@
 
+#include <vector>
 #include <iostream>
 #include <sys/resource.h>
 
@@ -17,10 +18,17 @@ void ulimit_limit()
     std::cout << "rlimit changed to " << rlp.rlim_cur << std::endl;
 }
 
-extern int proxy_main(int argc, char* argv[]);
+int proxy_main(std::vector<std::string> argv);
 
 int main(int argc, char* argv[])
 {
 	ulimit_limit();
-	return proxy_main(argc, argv);
+	std::vector<std::string> args;
+
+	for (int i = 0; i < argc; i++)
+	{
+		args.push_back(argv[i]);
+	}
+
+	return proxy_main(args);
 }

@@ -32,7 +32,7 @@ static void process_socks5_client(boost::asio::io_context& io, boost::asio::ip::
 	}
 }
 
-int proxy_main(int argc, char* argv[])
+int proxy_main(std::vector<std::string> argv)
 {
 	std::string config;
 
@@ -44,7 +44,7 @@ int proxy_main(int argc, char* argv[])
 		;
 
 	variables_map vm;
-	po::store(po::parse_command_line(argc, argv, desc), vm);
+	po::store(po::basic_command_line_parser<char>(argv).options(desc).run(), vm);
 	po::notify(vm);
 
 	if (vm.count("help"))

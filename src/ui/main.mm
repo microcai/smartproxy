@@ -3,6 +3,7 @@
 #include <boost/thread.hpp>
 #include <sys/resource.h>
 #include <iostream>
+#include <vector>
 
 void ulimit_limit()
 {
@@ -19,11 +20,18 @@ void ulimit_limit()
     std::cout << "rlimit changed to " << rlp.rlim_cur << std::endl;
 }
 
-extern int proxy_main(int argc, char* argv[]);
+int proxy_main(std::vector<std::string> argv);
 
 int main(int argc, char* argv[])
 {
-    ulimit_limit();
+	std::vector<std::string> args;
+
+	for (int i = 0; i < argc; i++)
+	{
+		args.push_back(argv[i]);
+	}
+
+	ulimit_limit();
     [NSApplication sharedApplication];
 
     NSStatusBar *bar = [NSStatusBar systemStatusBar];
@@ -36,7 +44,7 @@ int main(int argc, char* argv[])
 //    [theItem setMenu:theMenu];
     
 
-    auto network = boost::thread(boost::bind(&proxy_main, argc, argv));
+    auto network = boost::thread(boost::bind(&proxy_main, args));
 
     [NSApp run];
     network.join();
