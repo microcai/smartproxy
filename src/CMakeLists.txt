@@ -13,7 +13,11 @@ add_definitions(-DBOOST_ASIO_NO_DEPRECATED)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 if (APPLE)
-	set(UI ui/statusbar.h ui/statusbar.mm)
+	set(UI ui/main.mm)
+elseif(WIN32)
+	set(UI ui/win32.cpp)
+else()
+	set(UI ui/cli.cpp)
 endif()
 
 add_executable(smartproxy MACOSX_BUNDLE smartsocks5.cpp getifaddr.cpp ${UI})

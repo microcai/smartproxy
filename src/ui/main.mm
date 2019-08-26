@@ -1,8 +1,9 @@
 
 #include <Cocoa/Cocoa.h>
-#include "statusbar.h"
 
-void show_statusbar()
+extern int proxy_main(int argc, char* argv[]);
+
+void main(int argc, char* argv[])
 {
     NSStatusBar *bar = [NSStatusBar systemStatusBar];
 
@@ -12,4 +13,7 @@ void show_statusbar()
     [theItem setTitle: NSLocalizedString(@"SmartProxy",@"")];
     [theItem setHighlightMode:YES];
 //    [theItem setMenu:theMenu];
+
+	proxy_main(argc, argv);
 }
+

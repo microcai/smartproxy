@@ -16,7 +16,6 @@ using po::variables_map;
 #include "proxyconfig.hpp"
 
 #include "Socks5Session.hpp"
-#include "ui/statusbar.h"
 
 static proxyconfig parse_config(std::string configfile);
 
@@ -33,6 +32,7 @@ static void process_socks5_client(boost::asio::io_context& io, boost::asio::ip::
 	}
 }
 #ifndef _WIN32
+
 #include <sys/resource.h>
 
 void ulimit_limit()
@@ -41,15 +41,19 @@ void ulimit_limit()
 
 	getrlimit(RLIMIT_NOFILE, &rlp);
 
-	rlp.rlim_cur = 10000;
-	setrlimit(RLIMIT_NOFILE, &rlp);
+	if (rlp.rlim_cur < 10000)
+	{
+		rlp.rlim_cur = 10000;
+		setrlimit(RLIMIT_NOFILE, &rlp);
+	}
 	getrlimit(RLIMIT_NOFILE, &rlp);
-	printf("rlimit changed to %d %d\n", rlp.rlim_cur, rlp.rlim_max);
+	std::cout << "rlimit changed to " << rlp.rlim_cur << std::endl;
 }
 #else
 void ulimit_limit(){}
 #endif
-int main(int argc, char* argv[])
+
+int proxy_main(int argc, char* argv[])
 {
 	ulimit_limit();
 	std::string config;
@@ -120,10 +124,6 @@ int main(int argc, char* argv[])
 
 		workers.back().start();
 	}
-
-#ifdef __MACH__
-	show_statusbar();
-#endif
 
 	io.run();
 	return 0;
