@@ -40,10 +40,13 @@ void ulimit_limit()
 
 	getrlimit(RLIMIT_NOFILE, &rlp);
 
-	rlp.rlim_cur = 10000;
-	setrlimit(RLIMIT_NOFILE, &rlp);
+	if (rlp.rlim_cur < 10000)
+	{
+		rlp.rlim_cur = 10000;
+		setrlimit(RLIMIT_NOFILE, &rlp);
+	}
 	getrlimit(RLIMIT_NOFILE, &rlp);
-	printf("rlimit changed to %d %d\n", rlp.rlim_cur, rlp.rlim_max);
+	printf("rlimit changed to %lu \n", rlp.rlim_cur);
 }
 #else
 void ulimit_limit(){}

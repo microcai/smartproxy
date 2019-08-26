@@ -662,7 +662,7 @@ private:
 		{
 			if (!one_connect_success.test_and_set())
 			{
-				std::cerr << "proxy to " << client_sock.remote_endpoint(ec) << " via " << client_sock.local_endpoint() << "\n";
+				std::cerr << "direct connect to " << client_sock.remote_endpoint(ec) << "\n";
 
 				boost::shared_ptr<avsocks::splice<Socks5Session, boost::asio::ip::tcp::socket&, boost::asio::ip::tcp::socket>> splice_ptr;
 
