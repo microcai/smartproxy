@@ -27,8 +27,7 @@ endif()
 target_link_libraries(smartproxy utility)
 
 if (APPLE)
-	target_link_libraries(smartproxy -framework Cocoa)
+	target_link_libraries(smartproxy "-framework Foundation" "-framework Cocoa" objc)
 endif()
-
 
 install(TARGETS smartproxy DESTINATION bin)
