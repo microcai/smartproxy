@@ -1,9 +1,18 @@
 
 #include <windows.h>
+#include <vector>
+#include <string>
 
 int proxy_main(std::vector<std::string> argv);
 
-int __stdcall wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nShowCmd)
+int main(int argc, char* argv[])
 {
-	return proxy_main({});
+	std::vector<std::string> args;
+
+	for (int i = 0; i < argc; i++)
+	{
+		args.push_back(argv[i]);
+	}
+
+	return proxy_main(args);
 }
