@@ -16,7 +16,9 @@ if (APPLE)
 	set(UI ui/statusbar.h ui/statusbar.mm)
 endif()
 
-add_executable(smartproxy smartsocks5.cpp getifaddr.cpp ${UI})
+add_executable(smartproxy MACOSX_BUNDLE smartsocks5.cpp getifaddr.cpp ${UI})
+
+set_target_properties(smartproxy PROPERTIES MACOSX_BUNDLE_INFO_PLIST MacOSXBundleInfo.plist.in)
 
 target_link_libraries(smartproxy Boost::thread Boost::program_options Boost::context)
 
