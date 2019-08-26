@@ -22,8 +22,6 @@ endif()
 
 add_executable(smartproxy MACOSX_BUNDLE smartsocks5.cpp getifaddr.cpp ${UI})
 
-set_target_properties(smartproxy PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/MacOSXBundleInfo.plist.in)
-
 target_link_libraries(smartproxy Boost::thread Boost::program_options Boost::context)
 
 if (USE_SYSTEM_BOOST)
