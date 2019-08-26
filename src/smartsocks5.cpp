@@ -120,6 +120,10 @@ int main(int argc, char* argv[])
 		workers.back().start();
 	}
 
+#ifdef __MACH__
+	show_statusbar();
+#endif
+
 	io.run();
 	return 0;
 }
