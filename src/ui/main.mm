@@ -1,6 +1,6 @@
 
 #include <Cocoa/Cocoa.h>
-#include <thread>
+#include <boost/thread.hpp>
 #include <sys/resource.h>
 #include <iostream>
 
@@ -36,11 +36,7 @@ int main(int argc, char* argv[])
 //    [theItem setMenu:theMenu];
     
 
-    auto network = std::thread([argc, argv](){
-      
-        argv[0];
-        proxy_main(argc, argv);
-    });
+    auto network = boost::thread(boost::bind(&proxy_main, argc, argv));
 
     [NSApp run];
     network.join();
