@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 2.8)
 
 project(openssl)
 
+option(SHARED_OPENSSL "build shared openssl lib" OFF)
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
