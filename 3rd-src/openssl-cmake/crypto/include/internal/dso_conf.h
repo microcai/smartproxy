@@ -11,7 +11,14 @@
 
 #ifndef HEADER_DSO_CONF_H
 # define HEADER_DSO_CONF_H
+
+
+#ifndef _WIN32
 # define DSO_DLFCN
 # define HAVE_DLFCN_H
 # define DSO_EXTENSION ".so"
+#else
+# define DSO_EXTENSION ".dll"
+#endif
+
 #endif
