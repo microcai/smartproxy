@@ -49,7 +49,10 @@ void ulimit_limit()
 	printf("rlimit changed to %lu \n", rlp.rlim_cur);
 }
 #else
-void ulimit_limit(){}
+void ulimit_limit()
+{
+	printf("windows does not need to call setrlimit\n");
+}
 #endif
 int main(int argc, char* argv[])
 {
