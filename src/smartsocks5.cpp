@@ -79,6 +79,12 @@ int main(int argc, const char* argv[])
 		return 0;
 	}
 
+	if (vm.count("version"))
+	{
+		std::cout << "0.8.7" << "\n";
+		return 0;
+	}
+
 	proxyconfig cfg = parse_config(config);
 
 	boost::asio::io_context io;
