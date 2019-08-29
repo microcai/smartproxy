@@ -1,4 +1,5 @@
 
+#include <locale>
 #include <string>
 #include <iostream>
 #include <boost/asio.hpp>
@@ -51,12 +52,14 @@ void ulimit_limit()
 #else
 void ulimit_limit()
 {
-	printf("windows does not need to call setrlimit\n");
+	WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), L"windows does not need to call setrlimit\n", sizeof(L"windows does not need to call setrlimit\n") - 1, nullptr, nullptr);
 }
 #endif
-int main(int argc, char* argv[])
+
+int main(int argc, const char* argv[])
 {
 	ulimit_limit();
+	setlocale(LC_ALL, "chs");
 	std::string config;
 
 	options_description desc("options");
@@ -80,6 +83,7 @@ int main(int argc, char* argv[])
 
 	boost::asio::io_context io;
 
+#ifndef _WIN32
 	stack_storage<boost::asio::ip::tcp::acceptor, 20> stor_for_accept_socket;
 	stack_storage<ioworker, 500> stor;
 
@@ -88,6 +92,13 @@ int main(int argc, char* argv[])
 
 	std::vector<boost::asio::ip::tcp::acceptor, stack_allocator<boost::asio::ip::tcp::acceptor>> accept_sockets(stor_for_accept_socket);
 	accept_sockets.reserve(20);
+#else
+	std::vector<ioworker> workers;
+	workers.reserve(500);
+
+	std::vector<boost::asio::ip::tcp::acceptor> accept_sockets;
+	accept_sockets.reserve(20);
+#endif
 
 	accept_sockets.emplace_back(io);
 	accept_sockets.emplace_back(io);

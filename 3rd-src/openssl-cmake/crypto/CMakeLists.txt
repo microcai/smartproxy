@@ -150,6 +150,17 @@ target_compile_definitions(crypto PUBLIC
 
 target_include_directories(crypto PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../include/)
 
+
+if( CMAKE_SIZEOF_VOID_P EQUAL 8 )
+	if (MSVC)
+		target_compile_definitions(crypto PUBLIC -DSIXTY_FOUR_BIT)
+	else()
+		target_compile_definitions(crypto PUBLIC -DSIXTY_FOUR_BIT_LONG)
+	endif()
+else()
+	target_compile_definitions(crypto PUBLIC -DTHIRTY_TWO_BIT)
+endif()
+
 if (SHARED_OPENSSL)
 	
 endif()
