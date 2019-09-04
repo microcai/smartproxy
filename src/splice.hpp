@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <iostream>
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
@@ -36,7 +37,9 @@ public:
 		);
 	}
 
-	~splice(){ }
+	~splice(){
+		std::cerr << "gggggggggggggggggggggg\n";
+	}
 
 private:
 	void s1s2_handle_read(const boost::system::error_code & ec, std::size_t bytes_transferred){

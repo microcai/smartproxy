@@ -13,6 +13,7 @@ using po::variables_map;
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/pool/pool_alloc.hpp>
+#include <boost/thread.hpp>
 
 #include "proxyconfig.hpp"
 
@@ -143,6 +144,17 @@ int main(int argc, const char* argv[])
 		workers.back().start();
 	}
 
+	boost::thread_group tg;
+
+	for (int i=0; i < std::thread::hardware_concurrency(); i++)
+	{
+		continue;
+		tg.create_thread([&io](){
+			io.run();
+		});
+	}
+
+//	tg.join_all();
 	io.run();
 	return 0;
 }
@@ -153,11 +165,11 @@ int main(int argc, const char* argv[])
 
 static proxyconfig parse_config(std::string configfile)
 {
-	upstream_direct_connect_via_binded_address ud;
-	ud.bind_addr = "::";
-
 	proxyconfig cfg;
 	cfg.listenport = 1810;
+
+	upstream_direct_connect_via_binded_address ud;
+	ud.bind_addr = "::";
 	cfg.upstreams.push_back(ud);
 	ud.bind_addr = "0.0.0.0";
 	cfg.upstreams.push_back(ud);

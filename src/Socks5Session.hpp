@@ -99,6 +99,12 @@ public:
 
 	~Socks5Session()
 	{
+		std::cerr << "xxxxxxxxxxxxxxxxxxxxxx\n";
+		std::cerr << "xxxxxxxxxxxxxxxxxxxxxx\n";
+		std::cerr << "xxxxxxxxxxxxxxxxxxxxxx\n";
+		std::cerr << "xxxxxxxxxxxxxxxxxxxxxx\n";
+		std::cerr << "xxxxxxxxxxxxxxxxxxxxxx\n";
+		std::cerr << "xxxxxxxxxxxxxxxxxxxxxx\n";
 	}
 
 	void start()
@@ -270,15 +276,15 @@ private:
 
 			void operator()(const upstream_socks5& up) const
 			{
-				boost::asio::spawn(_this->m_io, boost::bind(&Socks5Session::socks5_connect_coroutine, _this->shared_from_this(), host, port, up, _1));
+				boost::asio::spawn(_this->m_io, boost::bind(&Socks5Session::socks5_connect_coroutine, _this, host, port, up, _1));
 			}
 
-			mutable Socks5Session* _this;
+			boost::shared_ptr<Socks5Session> _this;
 			std::string host;
 			int port;
 
 			upstream_visitor(Socks5Session* parent, std::string host, int port)
-				: _this(parent)
+				: _this(parent->shared_from_this())
 				, host(host)
 				, port(port)
 			{
@@ -412,7 +418,7 @@ private:
 			}
 
 			if (!ec)
-				handlesocks5_connection_success(upstream_socks5_socket, host, port, up, yield_context);
+				handlesocks5_connection_success(std::move(upstream_socks5_socket), host, port, up, yield_context);
 		}
 	}
 
@@ -619,14 +625,12 @@ private:
 		if (ec)
 			return;
 		// now , check the first that returns!
-		handle_connection_success(client_sock, up, yield_context);
+		handle_connection_success(std::move(client_sock), up, yield_context);
 	}
 
 	void connect_all_dnsresult_coroutine(boost::asio::ip::tcp::endpoint remote_to_connect, const upstream_direct_connect_via_binded_address& up, boost::asio::yield_context yield_context)
 	{
 		auto bind_addr = boost::asio::ip::make_address(up.bind_addr);
-
-		boost::asio::ip::tcp::socket client_sock(m_io);
 
 		if (bind_addr.is_v4() && remote_to_connect.protocol() == boost::asio::ip::tcp::v6())
 		{
@@ -641,6 +645,7 @@ private:
 		}
 
 		boost::system::error_code ec;
+		boost::asio::ip::tcp::socket client_sock(m_io);
 		client_sock.open(bind_addr.is_v6() ? boost::asio::ip::tcp::v6() : boost::asio::ip::tcp::v4());
 		if (ec == boost::asio::error::no_descriptors)
 		{
@@ -655,10 +660,10 @@ private:
 		if (ec)
 			return;
 
-		handle_connection_success(client_sock, up, yield_context);
+		handle_connection_success(std::move(client_sock), up, yield_context);
 	}
 
-	void handle_connection_success(boost::asio::ip::tcp::socket& client_sock, const upstream_direct_connect_via_binded_address& up, boost::asio::yield_context& yield_context)
+	void handle_connection_success(boost::asio::ip::tcp::socket upstream_sock, const upstream_direct_connect_via_binded_address& up, boost::asio::yield_context& yield_context)
 	{
 		boost::system::error_code ec;
 
@@ -674,27 +679,31 @@ private:
 		}
 
 		// now, read the first request, and send it over to the remote.
-		sync_first_communicate(client_sock, yield_context[ec]);
+		sync_first_communicate(upstream_sock, yield_context[ec]);
 
 		if (!ec)
 		{
 			if (!one_connect_success.test_and_set())
 			{
-				std::cerr << "direct connect to " << client_sock.remote_endpoint(ec) << "\n";
+				std::cerr << "direct connect to " << upstream_sock.remote_endpoint(ec) << "\n";
 
 				boost::shared_ptr<avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>> splice_ptr;
 
 				// start doing splice now.
 				splice_ptr.reset(
-					new avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>(std::move(m_clientsocket), std::move(client_sock))
+					new avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>(std::move(m_clientsocket), std::move(upstream_sock))
 				);
 
 				splice_ptr->start();
+				return;
+
+				// TODO, cancal all other proxy attempts.
 			}
 		}
+		upstream_sock.close(ec);
 	}
 
-	void handle_connection_success(boost::asio::ip::tcp::socket& upstream_socket, const upstream_direct_connect_via_binded_interface& up, boost::asio::yield_context& yield_context)
+	void handle_connection_success(boost::asio::ip::tcp::socket upstream_socket, const upstream_direct_connect_via_binded_interface& up, boost::asio::yield_context& yield_context)
 	{
 		boost::system::error_code ec;
 		if (ec)
@@ -721,11 +730,14 @@ private:
 				);
 
 				splice_ptr->start();
-			};
+				return;
+			}
 		}
+
+		upstream_socket.close(ec);
 	}
 
-	void handlesocks5_connection_success(boost::asio::ip::tcp::socket& client_sock, std::string host, int port, upstream_socks5& up, boost::asio::yield_context& yield_context)
+	void handlesocks5_connection_success(boost::asio::ip::tcp::socket upstream_sock, std::string host, int port, upstream_socks5& up, boost::asio::yield_context& yield_context)
 	{
 		boost::system::error_code ec;
 		// 向 client 返回链接成功信息.
@@ -734,7 +746,7 @@ private:
 		});
 
 		// now, read the first request, and send it over to the remote.
-		sync_first_communicate(client_sock, yield_context[ec]);
+		sync_first_communicate(upstream_sock, yield_context[ec]);
 		// after remote response, start spice
 		if (!ec)
 		{
@@ -746,12 +758,14 @@ private:
 
 				// start doing splice now.
 				splice_ptr.reset(
-					new avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>(std::move(m_clientsocket), std::move(client_sock))
+					new avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>(std::move(m_clientsocket), std::move(upstream_sock))
 				);
 
 				splice_ptr->start();
-			};
+				return;
+			}
 		}
+		upstream_sock.close(ec);
 	}
 
 private:
