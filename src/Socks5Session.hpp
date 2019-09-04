@@ -97,6 +97,9 @@ public:
 		one_response.clear();
 	}
 
+	~Socks5Session()
+	{
+	}
 
 	void start()
 	{
@@ -314,7 +317,12 @@ private:
 		boost::system::error_code ec;
 		boost::asio::ip::tcp::socket upstream_socks5_socket(m_io);
 
-		upstream_socks5_socket.open(remote_to_connect.protocol());
+		upstream_socks5_socket.open(remote_to_connect.protocol(), ec);
+		if (ec == boost::asio::error::no_descriptors)
+		{
+			return;
+		}
+
 		upstream_socks5_socket.async_connect(remote_to_connect, yield_context[ec]);
 
 		if (ec)
@@ -595,11 +603,16 @@ private:
 
 		boost::asio::ip::tcp::socket client_sock(m_io);
 
-		client_sock.open(bind_addr.is_v6() ? boost::asio::ip::tcp::v6(): boost::asio::ip::tcp::v4() );
-
-		client_sock.bind(boost::asio::ip::tcp::endpoint(bind_addr, 0));
-
 		boost::system::error_code ec;
+		client_sock.open(bind_addr.is_v6() ? boost::asio::ip::tcp::v6(): boost::asio::ip::tcp::v4(), ec);
+		if (ec == boost::asio::error::no_descriptors)
+		{
+			return;
+		}
+
+		client_sock.bind(boost::asio::ip::tcp::endpoint(bind_addr, 0), ec);
+		if (ec)
+			return;
 
 		client_sock.async_connect(remote_to_connect, yield_context[ec]);
 
@@ -627,11 +640,16 @@ private:
 			return;
 		}
 
-		client_sock.open(bind_addr.is_v6() ? boost::asio::ip::tcp::v6() : boost::asio::ip::tcp::v4());
-		client_sock.bind(boost::asio::ip::tcp::endpoint(bind_addr, 0));
-
 		boost::system::error_code ec;
+		client_sock.open(bind_addr.is_v6() ? boost::asio::ip::tcp::v6() : boost::asio::ip::tcp::v4());
+		if (ec == boost::asio::error::no_descriptors)
+		{
+			return;
+		}
 
+		client_sock.bind(boost::asio::ip::tcp::endpoint(bind_addr, 0), ec);
+		if (ec)
+			return;
 		client_sock.async_connect(remote_to_connect, yield_context[ec]);
 
 		if (ec)
@@ -664,11 +682,11 @@ private:
 			{
 				std::cerr << "direct connect to " << client_sock.remote_endpoint(ec) << "\n";
 
-				boost::shared_ptr<avsocks::splice<Socks5Session, boost::asio::ip::tcp::socket&, boost::asio::ip::tcp::socket>> splice_ptr;
+				boost::shared_ptr<avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>> splice_ptr;
 
 				// start doing splice now.
 				splice_ptr.reset(
-					new avsocks::splice<Socks5Session, boost::asio::ip::tcp::socket&, boost::asio::ip::tcp::socket>(shared_from_this(), m_clientsocket, std::move(client_sock))
+					new avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>(std::move(m_clientsocket), std::move(client_sock))
 				);
 
 				splice_ptr->start();
@@ -695,11 +713,11 @@ private:
 			{
 				std::cerr << "direct connect to " << upstream_socket.remote_endpoint(ec) << std::endl;
 
-				boost::shared_ptr<avsocks::splice<Socks5Session, boost::asio::ip::tcp::socket&, boost::asio::ip::tcp::socket>> splice_ptr;
+				boost::shared_ptr<avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>> splice_ptr;
 
 				// start doing splice now.
 				splice_ptr.reset(
-					new avsocks::splice<Socks5Session, boost::asio::ip::tcp::socket&, boost::asio::ip::tcp::socket>(shared_from_this(), m_clientsocket, std::move(upstream_socket))
+					new avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>(std::move(m_clientsocket), std::move(upstream_socket))
 				);
 
 				splice_ptr->start();
@@ -724,14 +742,14 @@ private:
 			{
 				std::cerr << "proxy to " << host << ":" << port << " via socks5 proxy: " << up.sock_host << ":" << up.sock_port << "\n";
 
-				boost::shared_ptr<avsocks::splice<Socks5Session, boost::asio::ip::tcp::socket&, boost::asio::ip::tcp::socket>> splice_ptr;
+				boost::shared_ptr<avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>> splice_ptr;
 
-					// start doing splice now.
-					splice_ptr.reset(
-						new avsocks::splice<Socks5Session, boost::asio::ip::tcp::socket&, boost::asio::ip::tcp::socket>(shared_from_this(), m_clientsocket, std::move(client_sock))
-					);
+				// start doing splice now.
+				splice_ptr.reset(
+					new avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>(std::move(m_clientsocket), std::move(client_sock))
+				);
 
-					splice_ptr->start();
+				splice_ptr->start();
 			};
 		}
 	}
