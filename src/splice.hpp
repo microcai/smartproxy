@@ -48,10 +48,12 @@ private:
 		}
 		else if (ec == boost::asio::error::eof){
 			boost::system::error_code ec;
+			s1.close(ec);
 			s2.lowest_layer().shutdown(asio::socket_base::shutdown_both,ec);//->close();
 		}
 		else {
 			boost::system::error_code ec;
+			s1.close(ec);
 			s2.close(ec);
 		}
 	}
@@ -62,6 +64,11 @@ private:
 				boost::bind(&splice<S1,S2>::s1s2_handle_read,shared_from_this(),ASIO_READ_PLACEHOLDERS)
 			);
 		}
+		else {
+			boost::system::error_code ec;
+			s1.close(ec);
+			s2.close(ec);
+		}
 	}
 	void s2s1_handle_read(const boost::system::error_code & ec, std::size_t bytes_transferred){
 		if(!ec){
@@ -71,10 +78,12 @@ private:
 			);
 		}else if (ec == boost::asio::error::eof){
 			boost::system::error_code ec;
+			s2.close(ec);
 			s1.lowest_layer().shutdown(asio::socket_base::shutdown_both,ec);
 		}else{
 			boost::system::error_code ec;
 			s1.close(ec);
+			s2.close(ec);
 		}
 	}
 	void s2s1_handle_write(const boost::system::error_code & ec, std::size_t bytes_transferred){
