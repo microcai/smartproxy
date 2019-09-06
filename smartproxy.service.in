@@ -6,5 +6,6 @@ DefaultDependencies=no
 ExecStart=@CMAKE_INSTALL_PREFIX@/bin/smartproxy
 LimitNOFILE=900000
 Restart=always
+MemoryMax=1G
 [Install]
 WantedBy=multi-user.target
