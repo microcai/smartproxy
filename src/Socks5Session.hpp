@@ -544,6 +544,8 @@ private:
 				if (!m_shared_member->upstream_splice_flag.test_and_set())
 				{
 					// the first coroutine that goes here, wins the selection.
+					if (bytes_transferred ==0 )
+						ec = boost::asio::error::make_error_code(asio::error::not_connected);
 					boost::asio::post(upstream_socket->get_executor(), std::bind(handler, ec));
 				}
 				else
