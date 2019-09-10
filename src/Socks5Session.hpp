@@ -99,12 +99,6 @@ public:
 
 	~Socks5Session()
 	{
-		std::cerr << "xxxxxxxxxxxxxxxxxxxxxx\n";
-		std::cerr << "xxxxxxxxxxxxxxxxxxxxxx\n";
-		std::cerr << "xxxxxxxxxxxxxxxxxxxxxx\n";
-		std::cerr << "xxxxxxxxxxxxxxxxxxxxxx\n";
-		std::cerr << "xxxxxxxxxxxxxxxxxxxxxx\n";
-		std::cerr << "xxxxxxxxxxxxxxxxxxxxxx\n";
 	}
 
 	void start()

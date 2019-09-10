@@ -38,7 +38,6 @@ public:
 	}
 
 	~splice(){
-		std::cerr << "gggggggggggggggggggggg\n";
 	}
 
 private:
