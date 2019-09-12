@@ -64,7 +64,7 @@ set(OPENSSL_LIBRARIES OpenSSL::Crypto OpenSSL::SSL)
 add_definitions(-DHAVE_DECL_EVP_MD_CTX_NEW)
 else()
 
-add_subdirectory(3rd-src/openssl-cmake)
+add_subdirectory(3rd-src/openssl-cmake EXCLUDE_FROM_ALL)
 set(OPENSSL_LIBRARIES crypto ssl)
 
 endif()

@@ -47,7 +47,7 @@ private:
 				boost::bind(&splice<S1,S2>::s1s2_handle_write,shared_from_this(),ASIO_WRITE_PLACEHOLDERS)
 			);
 		}
-		else if (ec == boost::asio::error::eof){
+		else if (ec == boost::asio::error::eof || bytes_transferred == 0){
 			boost::system::error_code ec;
 			s1.close(ec);
 			s2.lowest_layer().shutdown(asio::socket_base::shutdown_both,ec);//->close();
@@ -75,7 +75,7 @@ private:
 			boost::asio::async_write(s1, boost::asio::buffer(s2s1buf), boost::asio::transfer_exactly(bytes_transferred),
 				boost::bind(&splice<S1,S2>::s2s1_handle_write,shared_from_this(),ASIO_WRITE_PLACEHOLDERS)
 			);
-		}else if (ec == boost::asio::error::eof){
+		}else if (ec == boost::asio::error::eof || bytes_transferred == 0){
 			boost::system::error_code ec;
 			s2.close(ec);
 			s1.lowest_layer().shutdown(asio::socket_base::shutdown_both,ec);
