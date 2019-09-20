@@ -195,11 +195,11 @@ static proxyconfig parse_config(std::string configfile)
 		std::string config_file_content;
 
 		config_file_content.resize(boost::filesystem::file_size(configfile));
-		ifile.read(&config_file_content[0], config_file_content.capacity());
+		ifile.read(&config_file_content[0], config_file_content.size());
 
 		std::string err;
 
-		auto cfgjson = json11::Json::parse(config_file_content, err);
+		auto cfgjson = json11::Json::parse(config_file_content.c_str(), err);
 
 		if (cfgjson["listen"].is_number())
 			cfg.listenport = cfgjson["listen"].number_value().convert_to<int>();
