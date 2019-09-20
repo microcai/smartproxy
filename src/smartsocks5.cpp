@@ -53,7 +53,6 @@ void ulimit_limit()
 #else
 void ulimit_limit()
 {
-	WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), L"windows does not need to call setrlimit\n", sizeof(L"windows does not need to call setrlimit\n") - 1, nullptr, nullptr);
 }
 #endif
 

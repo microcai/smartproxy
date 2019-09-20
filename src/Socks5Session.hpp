@@ -411,6 +411,8 @@ private:
 				}
 			}
 
+			req_buf.clear();
+
 			if (!ec)
 				handlesocks5_connection_success(upstream_sock, host, port, up, std::move(yield_context));
 		}
