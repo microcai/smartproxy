@@ -350,7 +350,7 @@ private:
 		if (buf[0] == 0x05 && buf[1] == 0x00)
 		{
 			// write out
-			unsigned char req_buf[64];
+			std::vector<unsigned char> req_buf(64 + host.length());
 			int len = 0;
 
 			req_buf[0] = 0x05;
@@ -363,7 +363,7 @@ private:
 
 			boost::endian::big_int16_t nport = port;
 
-			memcpy(req_buf + 5 + host.length(), &nport, 2);
+			memcpy(&req_buf[5 + host.length()], &nport, 2);
 
 			len = host.length() + 7;
 
@@ -412,7 +412,7 @@ private:
 			}
 
 			if (!ec)
-				handlesocks5_connection_success(std::move(upstream_sock), host, port, up, yield_context);
+				handlesocks5_connection_success(upstream_sock, host, port, up, std::move(yield_context));
 		}
 	}
 
@@ -740,7 +740,7 @@ private:
 		upstream_socket->close(ec);
 	}
 
-	void handlesocks5_connection_success(std::shared_ptr<boost::asio::ip::tcp::socket> upstream_sock, std::string host, int port, upstream_socks5& up, boost::asio::yield_context& yield_context)
+	void handlesocks5_connection_success(std::shared_ptr<boost::asio::ip::tcp::socket> upstream_sock, std::string host, int port, upstream_socks5& up, boost::asio::yield_context yield_context)
 	{
 		boost::system::error_code ec;
 		// 向 client 返回链接成功信息.
