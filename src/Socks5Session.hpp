@@ -315,15 +315,15 @@ private:
 	void socks5_all_dnsresult_coroutine(boost::asio::ip::tcp::endpoint remote_to_connect, upstream_socks5& up, std::string host, int port, boost::asio::yield_context yield_context)
 	{
 		boost::system::error_code ec;
-		boost::asio::ip::tcp::socket upstream_socks5_socket(m_io);
+		auto upstream_sock = std::make_shared<boost::asio::ip::tcp::socket>(m_io);
 
-		upstream_socks5_socket.open(remote_to_connect.protocol(), ec);
+		upstream_sock->open(remote_to_connect.protocol(), ec);
 		if (ec == boost::asio::error::no_descriptors)
 		{
 			return;
 		}
 
-		upstream_socks5_socket.async_connect(remote_to_connect, yield_context[ec]);
+		upstream_sock->async_connect(remote_to_connect, yield_context[ec]);
 
 		if (ec)
 		{
@@ -335,7 +335,7 @@ private:
 
 		// then send request to socks5 server.
 
-		boost::asio::async_write(upstream_socks5_socket, boost::asio::buffer("\x05\x01\x00", 3), yield_context[ec]);
+		boost::asio::async_write(*upstream_sock, boost::asio::buffer("\x05\x01\x00", 3), yield_context[ec]);
 
 		if (ec)
 			return;
@@ -343,7 +343,7 @@ private:
 
 		unsigned char buf[2];
 
-		boost::asio::async_read(upstream_socks5_socket, boost::asio::buffer(buf), yield_context[ec]);
+		boost::asio::async_read(*upstream_sock, boost::asio::buffer(buf), yield_context[ec]);
 		if (ec)
 			return;
 		// check for 0500
@@ -367,12 +367,12 @@ private:
 
 			len = host.length() + 7;
 
-			boost::asio::async_write(upstream_socks5_socket, boost::asio::buffer(req_buf, len), boost::asio::transfer_exactly(len), yield_context[ec]);
+			boost::asio::async_write(*upstream_sock, boost::asio::buffer(req_buf, len), boost::asio::transfer_exactly(len), yield_context[ec]);
 			if (ec)
 				return;
 			// and then waiting for reply
 			unsigned char rep_buf_head[5];
-			boost::asio::async_read(upstream_socks5_socket, boost::asio::buffer(rep_buf_head), boost::asio::transfer_at_least(4),yield_context[ec]);
+			boost::asio::async_read(*upstream_sock, boost::asio::buffer(rep_buf_head), boost::asio::transfer_at_least(4),yield_context[ec]);
 
 			if (ec)
 				return;
@@ -385,7 +385,7 @@ private:
 					{
 						char buf[6];
 						buf[0] = rep_buf_head[4];
-						boost::asio::async_read(upstream_socks5_socket, boost::asio::buffer(buf+1, 5), boost::asio::transfer_exactly(5), yield_context[ec]);
+						boost::asio::async_read(*upstream_sock, boost::asio::buffer(buf+1, 5), boost::asio::transfer_exactly(5), yield_context[ec]);
 					}
 					break;
 					case 3:
@@ -396,14 +396,14 @@ private:
 #else
 						char buf[l + 2];
 #endif
-						boost::asio::async_read(upstream_socks5_socket, boost::asio::buffer(buf, l + 2), boost::asio::transfer_exactly(l + 2), yield_context[ec]);
+						boost::asio::async_read(*upstream_sock, boost::asio::buffer(buf, l + 2), boost::asio::transfer_exactly(l + 2), yield_context[ec]);
 					}
 					break;
 					case 4:
 					{
 						char buf[18];
 						buf[0] = rep_buf_head[4];
-						boost::asio::async_read(upstream_socks5_socket, boost::asio::buffer(buf + 1, 17), boost::asio::transfer_exactly(17), yield_context[ec]);
+						boost::asio::async_read(*upstream_sock, boost::asio::buffer(buf + 1, 17), boost::asio::transfer_exactly(17), yield_context[ec]);
 					}
 					break;
 					default:
@@ -412,7 +412,7 @@ private:
 			}
 
 			if (!ec)
-				handlesocks5_connection_success(std::move(upstream_socks5_socket), host, port, up, yield_context);
+				handlesocks5_connection_success(std::move(upstream_sock), host, port, up, yield_context);
 		}
 	}
 
@@ -420,7 +420,7 @@ private:
 	struct sync_first_communicate_op : boost::asio::coroutine
 	{
 		Handler handler;
-		boost::asio::ip::tcp::socket* upstream_socket;
+		std::shared_ptr<boost::asio::ip::tcp::socket> upstream_socket;
 		boost::asio::ip::tcp::socket* m_clientsocket;
 		multiread_first_tag& first_tag;
 
@@ -441,7 +441,7 @@ private:
 
 		std::shared_ptr<utility::steady_timer> t;
 
-		sync_first_communicate_op(multiread_first_tag& first_tag, boost::asio::ip::tcp::socket* m_clientsocket,  boost::asio::ip::tcp::socket* upstream_socket, Handler&& handler)
+		sync_first_communicate_op(multiread_first_tag& first_tag, boost::asio::ip::tcp::socket* m_clientsocket, std::shared_ptr<boost::asio::ip::tcp::socket> upstream_socket, Handler&& handler)
 			: upstream_socket(upstream_socket)
 			, m_clientsocket(m_clientsocket)
 			, handler(handler)
@@ -562,12 +562,12 @@ private:
 
 	template<typename Handler>
 	BOOST_ASIO_INITFN_RESULT_TYPE(Handler, void(boost::system::error_code))
-	sync_first_communicate(boost::asio::ip::tcp::socket& upstream_socket, Handler&& handler)
+	sync_first_communicate(std::shared_ptr<boost::asio::ip::tcp::socket> upstream_socket, Handler&& handler)
 	{
 		// ASYNC_HANDLER_TYPE_CHECK(Handler, void(boost::system::error_code, std::size_t));
 		boost::asio::async_completion<Handler, void(boost::system::error_code)> init(handler);
 
-		sync_first_communicate_op<std::decay_t<decltype(init.completion_handler)>>(first_read_tag, &m_clientsocket, &upstream_socket, std::move(init.completion_handler))();
+		sync_first_communicate_op<std::decay_t<decltype(init.completion_handler)>>(first_read_tag, &m_clientsocket, upstream_socket, std::move(init.completion_handler))();
 
 		return init.result.get();
 	}
@@ -610,25 +610,25 @@ private:
 		else
 			bind_addr = getifaddrv4(up.bindiface);
 
-		boost::asio::ip::tcp::socket client_sock(m_io);
+		auto upstream_sock = std::make_shared<boost::asio::ip::tcp::socket>(m_io);
 
 		boost::system::error_code ec;
-		client_sock.open(bind_addr.is_v6() ? boost::asio::ip::tcp::v6(): boost::asio::ip::tcp::v4(), ec);
+		upstream_sock->open(bind_addr.is_v6() ? boost::asio::ip::tcp::v6(): boost::asio::ip::tcp::v4(), ec);
 		if (ec == boost::asio::error::no_descriptors)
 		{
 			return;
 		}
 
-		client_sock.bind(boost::asio::ip::tcp::endpoint(bind_addr, 0), ec);
+		upstream_sock->bind(boost::asio::ip::tcp::endpoint(bind_addr, 0), ec);
 		if (ec)
 			return;
 
-		client_sock.async_connect(remote_to_connect, yield_context[ec]);
+		upstream_sock->async_connect(remote_to_connect, yield_context[ec]);
 
 		if (ec)
 			return;
 		// now , check the first that returns!
-		handle_connection_success(std::move(client_sock), up, yield_context);
+		handle_connection_success(std::move(upstream_sock), up, yield_context);
 	}
 
 	void connect_all_dnsresult_coroutine(boost::asio::ip::tcp::endpoint remote_to_connect, const upstream_direct_connect_via_binded_address& up, boost::asio::yield_context yield_context)
@@ -648,17 +648,17 @@ private:
 		}
 
 		boost::system::error_code ec;
-		boost::asio::ip::tcp::socket client_sock(m_io);
-		client_sock.open(bind_addr.is_v6() ? boost::asio::ip::tcp::v6() : boost::asio::ip::tcp::v4());
+		std::shared_ptr<boost::asio::ip::tcp::socket> client_sock = std::make_shared<boost::asio::ip::tcp::socket>(m_io);
+		client_sock->open(bind_addr.is_v6() ? boost::asio::ip::tcp::v6() : boost::asio::ip::tcp::v4());
 		if (ec == boost::asio::error::no_descriptors)
 		{
 			return;
 		}
 
-		client_sock.bind(boost::asio::ip::tcp::endpoint(bind_addr, 0), ec);
+		client_sock->bind(boost::asio::ip::tcp::endpoint(bind_addr, 0), ec);
 		if (ec)
 			return;
-		client_sock.async_connect(remote_to_connect, yield_context[ec]);
+		client_sock->async_connect(remote_to_connect, yield_context[ec]);
 
 		if (ec)
 			return;
@@ -666,7 +666,7 @@ private:
 		handle_connection_success(std::move(client_sock), up, yield_context);
 	}
 
-	void handle_connection_success(boost::asio::ip::tcp::socket upstream_sock, const upstream_direct_connect_via_binded_address& up, boost::asio::yield_context& yield_context)
+	void handle_connection_success(std::shared_ptr<boost::asio::ip::tcp::socket> upstream_sock, const upstream_direct_connect_via_binded_address& up, boost::asio::yield_context& yield_context)
 	{
 		boost::system::error_code ec;
 
@@ -688,13 +688,13 @@ private:
 		{
 			if (!one_connect_success.test_and_set())
 			{
-				std::cerr << "direct connect to " << upstream_sock.remote_endpoint(ec) << "\n";
+				std::cerr << "direct connect to " << upstream_sock->remote_endpoint(ec) << "\n";
 
 				boost::shared_ptr<avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>> splice_ptr;
 
 				// start doing splice now.
 				splice_ptr.reset(
-					new avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>(std::move(m_clientsocket), std::move(upstream_sock))
+					new avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>(std::move(m_clientsocket), std::move(*upstream_sock))
 				);
 
 				splice_ptr->start();
@@ -703,10 +703,10 @@ private:
 				// TODO, cancal all other proxy attempts.
 			}
 		}
-		upstream_sock.close(ec);
+		upstream_sock->close(ec);
 	}
 
-	void handle_connection_success(boost::asio::ip::tcp::socket upstream_socket, const upstream_direct_connect_via_binded_interface& up, boost::asio::yield_context& yield_context)
+	void handle_connection_success(std::shared_ptr<boost::asio::ip::tcp::socket> upstream_socket, const upstream_direct_connect_via_binded_interface& up, boost::asio::yield_context& yield_context)
 	{
 		boost::system::error_code ec;
 		if (ec)
@@ -723,13 +723,13 @@ private:
 		{
 			if (!one_connect_success.test_and_set())
 			{
-				std::cerr << "direct connect to " << upstream_socket.remote_endpoint(ec) << std::endl;
+				std::cerr << "direct connect to " << upstream_socket->remote_endpoint(ec) << std::endl;
 
 				boost::shared_ptr<avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>> splice_ptr;
 
 				// start doing splice now.
 				splice_ptr.reset(
-					new avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>(std::move(m_clientsocket), std::move(upstream_socket))
+					new avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>(std::move(m_clientsocket), std::move(*upstream_socket))
 				);
 
 				splice_ptr->start();
@@ -737,10 +737,10 @@ private:
 			}
 		}
 
-		upstream_socket.close(ec);
+		upstream_socket->close(ec);
 	}
 
-	void handlesocks5_connection_success(boost::asio::ip::tcp::socket upstream_sock, std::string host, int port, upstream_socks5& up, boost::asio::yield_context& yield_context)
+	void handlesocks5_connection_success(std::shared_ptr<boost::asio::ip::tcp::socket> upstream_sock, std::string host, int port, upstream_socks5& up, boost::asio::yield_context& yield_context)
 	{
 		boost::system::error_code ec;
 		// 向 client 返回链接成功信息.
@@ -761,14 +761,14 @@ private:
 
 				// start doing splice now.
 				splice_ptr.reset(
-					new avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>(std::move(m_clientsocket), std::move(upstream_sock))
+					new avsocks::splice<boost::asio::ip::tcp::socket, boost::asio::ip::tcp::socket>(std::move(m_clientsocket), std::move(*upstream_sock))
 				);
 
 				splice_ptr->start();
 				return;
 			}
 		}
-		upstream_sock.close(ec);
+		upstream_sock->close(ec);
 	}
 
 private:
