@@ -23,16 +23,18 @@ start() {
 
     ebegin "Starting SmartProxy"
     start-stop-daemon --start --exec ${SP_COMMAND} \
-	--user nobody --group nobody --background --make-pidfile --pidfile ${SP_PIDFILE} \
-	-- --config ${SP_CONFIG} >/dev/null 2>&1 &
+    --user nobody --group nobody --background --make-pidfile --pidfile ${SP_PIDFILE} \
+    -- --config ${SP_CONFIG} >/dev/null 2>&1 &
     eend $?
 }
 
 stop() {
     ebegin "Stopping SmartProxy"
     start-stop-daemon --stop \
-	--user nobody --group nobody \
-	--pidfile ${SP_PIDFILE}
+    --user nobody --group nobody \
+    --pidfile ${SP_PIDFILE}
     eend $?
 }
+
+
 
