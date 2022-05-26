@@ -59,7 +59,7 @@ private:
 					request_deadline_.expires_after(
 						boost::chrono::seconds(4));
 
-					request_deadline_.async_wait(boost::bind(&ioworker::check_deadline, this, _1));
+					request_deadline_.async_wait(boost::bind(&ioworker::check_deadline, this, boost::placeholders::_1));
 
 					read_request();
 				}

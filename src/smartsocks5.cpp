@@ -128,7 +128,7 @@ int main(int argc, const char* argv[])
 	{
 		workers.emplace_back(accept_sockets[0]);
 
-		workers.back().on_accept_socks5.connect(boost::bind(process_socks5_client, boost::ref(io), _1, _2, _3, boost::ref(cfg)));
+		workers.back().on_accept_socks5.connect(boost::bind(process_socks5_client, boost::ref(io), boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::ref(cfg)));
 
 //		workers.back().on_accept_http.connect(boost::bind(process_http_client, _1, _2, _3, boost::ref(cfg)));
 
@@ -136,7 +136,7 @@ int main(int argc, const char* argv[])
 
 		workers.emplace_back(accept_sockets[1]);
 
-		workers.back().on_accept_socks5.connect(boost::bind(process_socks5_client, boost::ref(io), _1, _2, _3, boost::ref(cfg)));
+		workers.back().on_accept_socks5.connect(boost::bind(process_socks5_client, boost::ref(io), boost::placeholders::_1, boost::placeholders::_2, boost::placeholders::_3, boost::ref(cfg)));
 
 //		workers.back().on_accept_http.connect(boost::bind(process_http_client, _1, _2, _3, boost::ref(cfg)));
 
