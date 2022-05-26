@@ -1,4 +1,4 @@
-﻿if(WIN32)
+if(WIN32)
 ENABLE_LANGUAGE(ASM_MASM)
 else()
 ENABLE_LANGUAGE(ASM)
@@ -12,13 +12,21 @@ include_directories(modes)
 
 set(GCM_SRC modes/cbc128.c  modes/ccm128.c  modes/cfb128.c  modes/ctr128.c  modes/gcm128.c  modes/ocb128.c  modes/ofb128.c  modes/wrap128.c  modes/xts128.c)
 
+if (WIN32)
+	set(ASYNC_ARCH async/arch/async_win.c async/arch/async_null.c)
+elseif (APPLE)
+	set(ASYNC_ARCH async/arch/async_null.c)
+else()
+	set(ASYNC_ARCH async/arch/async_posix.c async/arch/async_null.c)
+endif()
+
 file(GLOB SRCS
 	aes/*.c
 
 	aria/*.c
 	asn1/asn1_item_list.c asn1/a_object.c  asn1/a_bitstr.c  asn1/a_utctm.c  asn1/a_gentm.c  asn1/a_time.c  asn1/a_int.c  asn1/a_octet.c  asn1/a_print.c  asn1/a_type.c  asn1/a_dup.c  asn1/a_d2i_fp.c  asn1/a_i2d_fp.c  asn1/a_utf8.c  asn1/a_sign.c  asn1/a_digest.c  asn1/a_verify.c  asn1/a_mbstr.c  asn1/a_strex.c  asn1/x_algor.c  asn1/x_val.c  asn1/x_sig.c  asn1/x_bignum.c  asn1/x_long.c  asn1/x_int64.c  asn1/x_info.c  asn1/x_spki.c  asn1/nsseq.c  asn1/d2i_pu.c  asn1/d2i_pr.c  asn1/i2d_pu.c  asn1/i2d_pr.c  asn1/t_pkey.c  asn1/t_spki.c  asn1/t_bitst.c  asn1/tasn_new.c  asn1/tasn_fre.c  asn1/tasn_enc.c  asn1/tasn_dec.c  asn1/tasn_utl.c  asn1/tasn_typ.c  asn1/tasn_prn.c  asn1/tasn_scn.c  asn1/ameth_lib.c  asn1/f_int.c  asn1/f_string.c  asn1/n_pkey.c  asn1/x_pkey.c  asn1/bio_asn1.c  asn1/bio_ndef.c  asn1/asn_mime.c  asn1/asn1_gen.c  asn1/asn1_par.c  asn1/asn1_lib.c  asn1/asn1_err.c  asn1/a_strnid.c  asn1/evp_asn1.c  asn1/asn_pack.c  asn1/p5_pbe.c  asn1/p5_pbev2.c  asn1/p5_scrypt.c  asn1/p8_pkey.c  asn1/asn_moid.c  asn1/asn_mstbl.c
 
-	async/* async/arch/*.c
+	async/*
 
 	bf/bf_skey.c bf/bf_ecb.c bf/bf_cfb64.c bf/bf_ofb64.c bf/bf_enc.c
 
@@ -35,7 +43,26 @@ file(GLOB SRCS
 
 	dh/*.c
 
-	des/*.c
+	des/cbc_cksm.c
+	des/cbc_enc.c
+	des/cfb64ede.c
+	des/cfb64enc.c
+	des/cfb_enc.c
+	des/des_enc.c
+	des/ecb3_enc.c
+	des/ecb_enc.c
+	des/fcrypt_b.c
+	des/fcrypt.c
+	des/ofb64ede.c
+	des/ofb64enc.c
+	des/ofb_enc.c
+	des/pcbc_enc.c
+	des/qud_cksm.c
+	des/rand_key.c
+	des/set_key.c
+	des/str2key.c
+	des/xcbc_enc.c
+
 	dsa/*.c
 	dso/*.c
 
@@ -125,15 +152,16 @@ file(GLOB SRCS
 )
 
 if (SHARED_OPENSSL)
-add_library(crypto SHARED ${SRCS} ${GCM_SRC})
+add_library(crypto SHARED ${SRCS} ${ASYNC_ARCH} ${GCM_SRC})
 else()
-add_library(crypto STATIC ${SRCS} ${GCM_SRC})
+add_library(crypto STATIC ${SRCS} ${ASYNC_ARCH} ${GCM_SRC})
 endif()
 
 set_target_properties(crypto PROPERTIES FOLDER "third_party/openssl")
 
 target_compile_definitions(crypto PUBLIC
 	-DOPENSSL_NO_ASM
+	-DOPENSSL_NO_ASYNC
 	-DOPENSSL_NO_ENGINE
 	-DOPENSSL_NO_RC1
 	-DOPENSSL_NO_RC3
@@ -161,6 +189,11 @@ else()
 	target_compile_definitions(crypto PUBLIC -DTHIRTY_TWO_BIT)
 endif()
 
-if (SHARED_OPENSSL)
-	
+if (APPLE)
+	target_compile_definitions(crypto PRIVATE -DASYNC_NULL)
 endif()
+
+if(NOT MSVC AND NOT APPLE)
+	target_link_libraries(crypto PUBLIC)
+endif()
+

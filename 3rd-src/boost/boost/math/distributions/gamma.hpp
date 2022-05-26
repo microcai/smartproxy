@@ -12,6 +12,7 @@
 
 #include <boost/math/distributions/fwd.hpp>
 #include <boost/math/special_functions/gamma.hpp>
+#include <boost/math/special_functions/digamma.hpp>
 #include <boost/math/distributions/detail/common_error_handling.hpp>
 #include <boost/math/distributions/complement.hpp>
 
@@ -98,6 +99,13 @@ private:
 };
 
 // NO typedef because of clash with name of gamma function.
+
+#ifdef __cpp_deduction_guides
+template <class RealType>
+gamma_distribution(RealType)->gamma_distribution<typename boost::math::tools::promote_args<RealType>::type>;
+template <class RealType>
+gamma_distribution(RealType,RealType)->gamma_distribution<typename boost::math::tools::promote_args<RealType>::type>;
+#endif
 
 template <class RealType, class Policy>
 inline const std::pair<RealType, RealType> range(const gamma_distribution<RealType, Policy>& /* dist */)
@@ -334,6 +342,15 @@ template <class RealType, class Policy>
 inline RealType kurtosis(const gamma_distribution<RealType, Policy>& dist)
 {
    return kurtosis_excess(dist) + 3;
+}
+
+template <class RealType, class Policy>
+inline RealType entropy(const gamma_distribution<RealType, Policy>& dist)
+{
+   RealType k = dist.shape();
+   RealType theta = dist.scale();
+   using std::log;
+   return k + log(theta) + lgamma(k) + (1-k)*digamma(k);
 }
 
 } // namespace math

@@ -12,14 +12,14 @@
 #include <boost/math/special_functions/expm1.hpp>
 #include <boost/math/distributions/complement.hpp>
 #include <boost/math/distributions/detail/common_error_handling.hpp>
-#include <boost/config/no_tr1/cmath.hpp>
 
-#ifdef BOOST_MSVC
+#ifdef _MSC_VER
 # pragma warning(push)
 # pragma warning(disable: 4702) // unreachable code (return after domain_error throw).
 #endif
 
 #include <utility>
+#include <cmath>
 
 namespace boost{ namespace math{
 
@@ -76,6 +76,11 @@ private:
 }; // class rayleigh_distribution
 
 typedef rayleigh_distribution<double> rayleigh;
+
+#ifdef __cpp_deduction_guides
+template <class RealType>
+rayleigh_distribution(RealType)->rayleigh_distribution<typename boost::math::tools::promote_args<RealType>::type>;
+#endif
 
 template <class RealType, class Policy>
 inline const std::pair<RealType, RealType> range(const rayleigh_distribution<RealType, Policy>& /*dist*/)
@@ -286,10 +291,17 @@ inline RealType kurtosis_excess(const rayleigh_distribution<RealType, Policy>& /
   //   (four_minus_pi<RealType>() * four_minus_pi<RealType>());
 } // kurtosis
 
+template <class RealType, class Policy>
+inline RealType entropy(const rayleigh_distribution<RealType, Policy>& dist)
+{
+   using std::log;
+   return 1 + log(dist.sigma()*constants::one_div_root_two<RealType>()) + constants::euler<RealType>()/2;
+}
+
 } // namespace math
 } // namespace boost
 
-#ifdef BOOST_MSVC
+#ifdef _MSC_VER
 # pragma warning(pop)
 #endif
 

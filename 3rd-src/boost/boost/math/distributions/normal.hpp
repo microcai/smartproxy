@@ -71,7 +71,21 @@ private:
 
 typedef normal_distribution<double> normal;
 
-#ifdef BOOST_MSVC
+//
+// Deduction guides, note we don't check the 
+// value of __cpp_deduction_guides, just assume
+// they work as advertised, even if this is pre-final C++17.
+//
+#ifdef __cpp_deduction_guides
+
+template <class RealType>
+normal_distribution(RealType, RealType)->normal_distribution<typename boost::math::tools::promote_args<RealType>::type>;
+template <class RealType>
+normal_distribution(RealType)->normal_distribution<typename boost::math::tools::promote_args<RealType>::type>;
+
+#endif
+
+#ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable:4127)
 #endif
@@ -104,7 +118,7 @@ inline const std::pair<RealType, RealType> support(const normal_distribution<Rea
   }
 }
 
-#ifdef BOOST_MSVC
+#ifdef _MSC_VER
 #pragma warning(pop)
 #endif
 
@@ -314,6 +328,14 @@ template <class RealType, class Policy>
 inline RealType kurtosis_excess(const normal_distribution<RealType, Policy>& /*dist*/)
 {
    return 0;
+}
+
+template <class RealType, class Policy>
+inline RealType entropy(const normal_distribution<RealType, Policy> & dist)
+{
+   using std::log;
+   RealType arg = constants::two_pi<RealType>()*constants::e<RealType>()*dist.standard_deviation()*dist.standard_deviation();
+   return log(arg)/2;
 }
 
 } // namespace math

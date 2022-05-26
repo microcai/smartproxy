@@ -78,10 +78,11 @@ if(WIN32)
 endif()
 
 if (USE_SYSTEM_BOOST)
-find_package(Boost 1.64 COMPONENTS context coroutine filesystem locale thread program_options regex date_time)
+find_package(Boost 1.76 COMPONENTS context coroutine filesystem locale thread program_options regex date_time)
 
 else()
 set(Boost_USE_STATIC_LIBS ON)
+set(USE_BOOST_LOCALE ON)
 add_subdirectory(3rd-src/boost EXCLUDE_FROM_ALL)
 include_directories(3rd-src/boost)
 set(Boost_LIBRARIES Boost::filesystem Boost::system Boost::thread Boost::date_time Boost::program_options Boost::regex Boost::locale)

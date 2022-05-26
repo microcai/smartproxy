@@ -24,7 +24,7 @@
 
 namespace boost{ namespace math{
 
-#ifdef BOOST_MSVC
+#ifdef _MSC_VER
 #  pragma warning(push)
 #  pragma warning(disable:4127) // conditional expression is constant
 #endif
@@ -79,6 +79,13 @@ private:
 //
 // Convenient type synonym for double.
 typedef laplace_distribution<double> laplace;
+
+#ifdef __cpp_deduction_guides
+template <class RealType>
+laplace_distribution(RealType)->laplace_distribution<typename boost::math::tools::promote_args<RealType>::type>;
+template <class RealType>
+laplace_distribution(RealType,RealType)->laplace_distribution<typename boost::math::tools::promote_args<RealType>::type>;
+#endif
 
 //
 // Non-member functions.
@@ -333,7 +340,14 @@ inline RealType kurtosis_excess(const laplace_distribution<RealType, Policy>& /*
    return 3;
 }
 
-#ifdef BOOST_MSVC
+template <class RealType, class Policy>
+inline RealType entropy(const laplace_distribution<RealType, Policy> & dist)
+{
+   using std::log;
+   return log(2*dist.scale()*constants::e<RealType>());
+}
+
+#ifdef _MSC_VER
 #  pragma warning(pop)
 #endif
 

@@ -12,6 +12,10 @@
 #ifndef HEADER_DSO_CONF_H
 # define HEADER_DSO_CONF_H
 
+#if defined(__MINGW64__) || defined(__MINGW32__)
+#define DSO_NONE
+#define DSO_EXTENSION ".dll"
+#else
 
 #ifndef _WIN32
 # define DSO_DLFCN
@@ -19,6 +23,9 @@
 # define DSO_EXTENSION ".so"
 #else
 # define DSO_EXTENSION ".dll"
+# define DSO_NONE
+#endif
+
 #endif
 
 #endif

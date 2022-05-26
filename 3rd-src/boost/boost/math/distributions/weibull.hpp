@@ -99,6 +99,13 @@ private:
 
 typedef weibull_distribution<double> weibull;
 
+#ifdef __cpp_deduction_guides
+template <class RealType>
+weibull_distribution(RealType)->weibull_distribution<typename boost::math::tools::promote_args<RealType>::type>;
+template <class RealType>
+weibull_distribution(RealType,RealType)->weibull_distribution<typename boost::math::tools::promote_args<RealType>::type>;
+#endif
+
 template <class RealType, class Policy>
 inline const std::pair<RealType, RealType> range(const weibull_distribution<RealType, Policy>& /*dist*/)
 { // Range of permissible values for random variable x.
@@ -380,6 +387,15 @@ template <class RealType, class Policy>
 inline RealType kurtosis(const weibull_distribution<RealType, Policy>& dist)
 {
    return kurtosis_excess(dist) + 3;
+}
+
+template <class RealType, class Policy>
+inline RealType entropy(const weibull_distribution<RealType, Policy>& dist)
+{
+   using std::log;
+   RealType k = dist.shape();
+   RealType lambda = dist.scale();
+   return constants::euler<RealType>()*(1-1/k) + log(lambda/k) + 1;
 }
 
 } // namespace math
